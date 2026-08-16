@@ -31,8 +31,10 @@ def test_dry_run_writes_plan_without_training(tiny_bert_dir, tmp_path, capsys):
     assert "DataCollatorWithPadding" in captured
     assert "Why it's fast" in captured
     assert result.trainer is None
+    assert result.model_id == "dry"
     assert (output / "train_config.json").exists()
     assert (output / "train_snippet.py").exists()
+    compile((output / "train_snippet.py").read_text(encoding="utf-8"), str(output / "train_snippet.py"), "exec")
     assert not (output / "model.safetensors").exists()
     assert not (output / "pytorch_model.bin").exists()
 
@@ -40,7 +42,7 @@ def test_dry_run_writes_plan_without_training(tiny_bert_dir, tmp_path, capsys):
 def test_token_dry_run_documents_alignment(tiny_bert_dir, tmp_path, capsys):
     ds = Dataset.from_dict(
         {
-            "tokens": [["john", "lives", "in", "paris"], ["hello", "world"]],
+            "tokens": [["foozz", "lives", "in", "york"], ["hello", "world"]],
             "ner_tags": [["B-PER", "O", "O", "B-LOC"], ["O", "O"]],
         }
     )
@@ -56,8 +58,12 @@ def test_token_dry_run_documents_alignment(tiny_bert_dir, tmp_path, capsys):
     captured = capsys.readouterr().out
     assert "word_ids" in captured
     assert "-100" in captured
+    example = result.plan.alignment_example
+    assert example is not None
+    assert "##zz" in example or "##" in example
+    assert "labels:" in example
+    assert example.count("-100") >= 3
     assert "seqeval" in captured.lower() or "entity-level" in captured
-    assert result.plan.alignment_example is not None
     assert "AutoModelForTokenClassification" in captured
 
 

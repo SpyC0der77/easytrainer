@@ -15,7 +15,6 @@ from easytrain.result import LabelInfo, SchemaInfo
 
 class TaskPlugin(Protocol):
     type: str
-    pipeline_task: str
     default_learning_rate: float
     metrics_names: tuple[str, ...]
     model_class_name: str
@@ -38,3 +37,11 @@ class TaskPlugin(Protocol):
     def compute_metrics(self, labels: LabelInfo): ...
 
     def explain_notes(self, labels: LabelInfo) -> list[str]: ...
+
+    def format_alignment_example(
+        self,
+        example: dict[str, Any],
+        tokenizer: Any,
+        labels: LabelInfo,
+        max_length: int,
+    ) -> str: ...

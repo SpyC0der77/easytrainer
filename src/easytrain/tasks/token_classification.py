@@ -8,8 +8,7 @@ from easytrain.core.labels import encode_label_value, infer_label_info
 from easytrain.errors import ConfigError, SchemaError
 from easytrain.result import LabelInfo, SchemaInfo
 
-type = "token-classification"
-pipeline_task = "token-classification"
+type = "token-classification"  # noqa: A001
 default_learning_rate = 5e-5
 metrics_names = ("precision", "recall", "f1", "accuracy")
 model_class_name = "AutoModelForTokenClassification"
@@ -46,6 +45,7 @@ def get_collator(tokenizer: Any) -> Any:
 def validate_schema(dataset: Dataset) -> SchemaInfo:
     columns = list(dataset.column_names)
     if "tokens" in columns and "ner_tags" in columns:
+        _validate_token_rows(dataset)
         return SchemaInfo(
             columns=columns,
             mode="tokens",
@@ -67,8 +67,39 @@ EasyTrain does not guess column names. Rename them, or pass a mapping:
     )
 
 
+def _is_sequence(value: Any) -> bool:
+    if isinstance(value, (str, bytes)) or value is None:
+        return False
+    try:
+        iter(value)
+    except TypeError:
+        return False
+    return True
+
+
+def _validate_token_rows(dataset: Dataset) -> None:
+    for index, (tokens, tags) in enumerate(zip(dataset["tokens"], dataset["ner_tags"], strict=False)):
+        if not _is_sequence(tokens) or not _is_sequence(tags):
+            raise SchemaError(
+                f"Row {index}: tokens and ner_tags must both be lists "
+                "(words and BIO tags), not a single string or scalar."
+            )
+        n_tokens = len(list(tokens))
+        n_tags = len(list(tags))
+        if n_tokens != n_tags:
+            raise SchemaError(
+                f"Row {index}: tokens has {n_tokens} items but ner_tags has {n_tags}. Each word needs exactly one tag."
+            )
+
+
 def infer_labels(dataset: Dataset) -> LabelInfo:
-    return infer_label_info(dataset, "ner_tags", kind="bio")
+    info = infer_label_info(dataset, "ner_tags", kind="bio")
+    if info.names and all(name.startswith("LABEL_") for name in info.names):
+        raise SchemaError(
+            "token-classification needs named BIO tags for seqeval (e.g. O, B-PER, I-PER). "
+            "Integer ids without ClassLabel names are not enough. Pass string tags or a ClassLabel feature."
+        )
+    return info
 
 
 def align_labels_with_tokens(labels: list[int], word_ids: list[int | None]) -> list[int]:
@@ -173,15 +204,12 @@ def compute_metrics(labels: LabelInfo):
                 gold_tags.append(id2label[int(gold_id)])
             true_predictions.append(pred_tags)
             true_labels.append(gold_tags)
-        try:
-            return {
-                "precision": float(precision_score(true_labels, true_predictions)),
-                "recall": float(recall_score(true_labels, true_predictions)),
-                "f1": float(f1_score(true_labels, true_predictions)),
-                "accuracy": float(accuracy_score(true_labels, true_predictions)),
-            }
-        except Exception:
-            return {"precision": 0.0, "recall": 0.0, "f1": 0.0, "accuracy": 0.0}
+        return {
+            "precision": float(precision_score(true_labels, true_predictions)),
+            "recall": float(recall_score(true_labels, true_predictions)),
+            "f1": float(f1_score(true_labels, true_predictions)),
+            "accuracy": float(accuracy_score(true_labels, true_predictions)),
+        }
 
     return _compute
 

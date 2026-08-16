@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from easytrain.core.loop import run_training
@@ -81,14 +82,22 @@ def _build_request(
     try:
         epochs_value = float(epochs)
     except (TypeError, ValueError) as exc:
-        raise ConfigError("epochs must be a positive number.") from exc
-    if epochs_value <= 0:
-        raise ConfigError("epochs must be a positive number.")
-    if isinstance(batch_size, str) and batch_size != "auto":
-        raise ConfigError("batch_size must be an int or 'auto'.")
-    if speed not in {"auto", "stable", "max"}:
+        raise ConfigError("epochs must be a finite positive number.") from exc
+    if not math.isfinite(epochs_value) or epochs_value <= 0:
+        raise ConfigError("epochs must be a finite positive number.")
+    if isinstance(batch_size, bool) or not (batch_size == "auto" or (isinstance(batch_size, int) and batch_size > 0)):
+        raise ConfigError("batch_size must be a positive int or 'auto'.")
+    try:
+        speed_ok = speed in {"auto", "stable", "max"}
+    except TypeError:
+        speed_ok = False
+    if not speed_ok:
         raise ConfigError("speed must be 'auto', 'stable', or 'max'.")
-    if peft not in {"auto", "lora", "qlora", "none", "full", True, False}:
+    try:
+        peft_ok = peft in {"auto", "lora", "qlora", "none", "full", True, False}
+    except TypeError:
+        peft_ok = False
+    if not peft_ok:
         raise ConfigError("peft must be 'auto', 'lora', 'qlora', 'none', True, or False.")
     return TrainRequest(
         task_type=type,
@@ -123,7 +132,7 @@ class EasyTrainer:
     def evaluate(self) -> dict[str, float]:
         if self.result is None:
             raise ConfigError("Call fit() before evaluate().")
-        if self.result.trainer is None:
+        if self.result.trainer is None or not self.result.plan.eval_enabled:
             return dict(self.result.metrics)
         metrics = self.result.trainer.evaluate()
         numeric = {key: float(value) for key, value in metrics.items() if isinstance(value, (int, float))}
@@ -134,6 +143,11 @@ class EasyTrainer:
         if self.result is None:
             raise ConfigError("Call fit() before save().")
         output = path or self.result.output_dir
-        if self.result.trainer is not None:
-            self.result.trainer.save_model(output)
+        trainer = self.result.trainer
+        if trainer is None:
+            return output
+        from easytrain.core.save import save_model_artifacts
+
+        tokenizer = getattr(trainer, "processing_class", None) or getattr(trainer, "tokenizer", None)
+        trainer.model = save_model_artifacts(trainer.model, tokenizer, output)
         return output

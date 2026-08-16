@@ -8,8 +8,7 @@ from easytrain.core.labels import encode_label_value, infer_label_info
 from easytrain.errors import SchemaError
 from easytrain.result import LabelInfo, SchemaInfo
 
-type = "text-classification"
-pipeline_task = "text-classification"
+type = "text-classification"  # noqa: A001
 default_learning_rate = 2e-5
 metrics_names = ("accuracy", "f1")
 model_class_name = "AutoModelForSequenceClassification"
@@ -77,7 +76,11 @@ def infer_labels(dataset: Dataset) -> LabelInfo:
 
 
 def preprocess(dataset: Dataset, tokenizer: Any, labels: LabelInfo, max_length: int) -> Dataset:
-    mode = "pair" if "sentence1" in dataset.column_names and "sentence2" in dataset.column_names else "single"
+    columns = dataset.column_names
+    if "text" in columns and "label" in columns:
+        mode = "single"
+    else:
+        mode = "pair"
 
     def tokenize_batch(batch):
         if mode == "pair":

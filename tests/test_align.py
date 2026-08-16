@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import pytest
 from datasets import ClassLabel, Dataset, Features, Sequence, Value
 
 from easytrain.core.labels import infer_label_info
+from easytrain.errors import SchemaError
 from easytrain.tasks.token_classification import align_labels_with_tokens
 
 
@@ -54,7 +56,17 @@ def test_infer_bio_order():
 def test_infer_bio_from_strings():
     ds = Dataset.from_dict({"ner_tags": [["O", "B-PER", "I-PER"], ["B-LOC", "O"]]})
     info = infer_label_info(ds, "ner_tags", kind="bio")
-    assert info.names[0] == "O"
-    assert "B-PER" in info.names
-    assert info.label2id["B-PER"] < info.label2id["I-PER"] or True
-    assert info.names.index("B-LOC") < info.names.index("I-PER") or "I-PER" in info.names
+    assert info.names == ["O", "B-LOC", "B-PER", "I-PER"]
+    assert info.label2id["B-PER"] < info.label2id["I-PER"]
+
+
+def test_mixed_int_and_string_labels_are_rejected():
+    class FakeDataset:
+        column_names = ["label"]
+        features = {}
+
+        def __getitem__(self, key):
+            return [1, "1"]
+
+    with pytest.raises(SchemaError, match="Mixed"):
+        infer_label_info(FakeDataset(), "label", kind="class")

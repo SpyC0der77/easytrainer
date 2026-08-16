@@ -11,7 +11,7 @@ from easytrain.errors import ConfigError, SchemaError
 SPLIT_TRAIN = ("train", "training")
 SPLIT_VAL = ("validation", "val", "valid", "dev")
 SPLIT_TEST = ("test", "testing")
-LOAD_KEYS = {"path", "data", "name", "split", "data_files", "config"}
+LOAD_KEYS = {"path", "data", "name", "split", "data_files", "config", "builder"}
 
 
 @dataclass
@@ -75,7 +75,10 @@ def _rename_columns(dataset, mapping: dict[str, str]):
                 f"Found columns: {dataset.column_names}"
             )
         if canonical in dataset.column_names and canonical != source:
-            continue
+            raise SchemaError(
+                f"Cannot map {source!r} to {canonical!r}: the dataset already has a {canonical!r} column. "
+                f"Rename or drop one of them so the mapping is unambiguous. Found columns: {dataset.column_names}"
+            )
         rename[source] = canonical
     if not rename:
         return dataset
@@ -147,12 +150,26 @@ def _load_hub(path: str, name: str | None = None, split: str | None = None):
     return hf_load_dataset(hub_name, **kwargs)
 
 
+def _restrict_to_split(loaded, split: str | None):
+    if not split:
+        return loaded
+    from datasets import DatasetDict
+
+    if isinstance(loaded, DatasetDict):
+        if split not in loaded:
+            raise SchemaError(f"split={split!r} was not found. Available splits: {list(loaded.keys())}")
+        return loaded[split]
+    return loaded
+
+
 def _load_from_path(path: str, name: str | None = None, split: str | None = None):
     local = Path(path).expanduser()
     if local.exists():
         if local.is_dir():
-            return _load_local_dir(local)
-        return _load_local_file(local)
+            loaded = _load_local_dir(local)
+        else:
+            loaded = _load_local_file(local)
+        return _restrict_to_split(loaded, split)
     return _load_hub(path, name=name, split=split)
 
 
@@ -161,6 +178,10 @@ def load_dataset_spec(dataset: Any) -> DatasetBundle:
     source = "unknown"
 
     if isinstance(dataset, Mapping) and not _is_hf_dataset(dataset):
+        unknown = [key for key in dataset if key not in LOAD_KEYS and key not in CANONICAL_COLUMNS]
+        if unknown:
+            supported = ", ".join(sorted(LOAD_KEYS | set(CANONICAL_COLUMNS)))
+            raise ConfigError(f"Unknown dataset mapping key(s): {unknown}. Supported keys: {supported}.")
         mapping = _extract_mapping(dataset)
         if "data" in dataset:
             loaded = dataset["data"]
@@ -237,10 +258,39 @@ def ensure_eval_split(
     kwargs: dict[str, Any] = {"test_size": test_size, "seed": seed}
     split = None
     if stratify_column and stratify_column in bundle.train.column_names:
-        try:
-            split = bundle.train.train_test_split(stratify_by_column=stratify_column, **kwargs)
-        except Exception:
-            split = None
+        prepared = _prepare_stratify_column(bundle.train, stratify_column)
+        if prepared is not None:
+            try:
+                split = prepared.train_test_split(stratify_by_column=stratify_column, **kwargs)
+            except Exception:
+                split = None
+        if split is None:
+            import warnings
+
+            warnings.warn(
+                f"Could not stratify on {stratify_column!r}; using a random validation split.",
+                stacklevel=2,
+            )
     if split is None:
         split = bundle.train.train_test_split(**kwargs)
     return replace(bundle, train=split["train"], validation=split["test"])
+
+
+def _prepare_stratify_column(dataset, column: str):
+    """Return a dataset whose `column` is a ClassLabel so HF can stratify, or None."""
+    from datasets import ClassLabel
+
+    feature = dataset.features.get(column) if hasattr(dataset, "features") else None
+    if feature is not None and getattr(feature, "names", None):
+        return dataset
+    dtype = str(getattr(feature, "dtype", feature) or "")
+    try:
+        if "int" in dtype.lower():
+            values = [int(value) for value in dataset[column]]
+            if not values or min(values) < 0:
+                return None
+            names = [str(index) for index in range(max(values) + 1)]
+            return dataset.cast_column(column, ClassLabel(names=names))
+        return dataset.class_encode_column(column)
+    except Exception:
+        return None

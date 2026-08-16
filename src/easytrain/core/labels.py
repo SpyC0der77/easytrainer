@@ -40,12 +40,15 @@ def _as_items(row: Any) -> list[Any]:
 
 def _unique_values(dataset, column: str) -> list[Any]:
     values: list[Any] = []
-    seen: set[str] = set()
+    seen: set[Any] = set()
     for row in dataset[column]:
         items = _as_items(row)
         for item in items:
             item = _python_label(item)
-            key = str(item)
+            try:
+                key = (type(item), item)
+            except TypeError:
+                key = (type(item).__name__, str(item))
             if key in seen:
                 continue
             seen.add(key)

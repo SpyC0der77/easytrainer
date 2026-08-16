@@ -22,10 +22,18 @@ def test_ampere_uses_bf16_sdpa_fused():
     assert "BF16" in plan.why_fast or "bf16" in plan.why_fast.lower() or "A100" in plan.why_fast
 
 
-def test_t4_uses_fp16():
+def test_t4_uses_fp16_without_loading_fp16_weights():
     plan = plan_speed(_gpu("Tesla T4", (7, 5), 16), n_params=66_000_000)
     assert plan.precision == "fp16"
     assert plan.tf32 is False
+    assert plan.torch_dtype is None
+    assert plan.optim == "adamw_torch_fused"
+
+
+def test_pre_volta_does_not_use_fused_adamw():
+    plan = plan_speed(_gpu("Tesla P100", (6, 0), 16), n_params=66_000_000)
+    assert plan.optim == "adamw_torch"
+    assert plan.precision == "fp16"
 
 
 def test_cpu_is_fp32_no_fused():

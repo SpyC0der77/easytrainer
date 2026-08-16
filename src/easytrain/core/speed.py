@@ -39,10 +39,10 @@ class SpeedPlan:
 
     @property
     def torch_dtype(self):
+        # FP16 weights + GradScaler is unsafe; keep parameters in FP32 and let
+        # TrainingArguments.fp16/bf16 drive autocast. BF16 can load natively.
         if self.torch_dtype_name == "bfloat16":
             return torch.bfloat16
-        if self.torch_dtype_name == "float16":
-            return torch.float16
         return None
 
 
@@ -76,7 +76,7 @@ def _generation(capability: tuple[int, int] | None) -> str:
     return "older"
 
 
-def _pick_precision(hardware: Hardware, speed: str) -> str:
+def _pick_precision(hardware: Hardware) -> str:
     if hardware.device == "cpu":
         return "fp32"
     if hardware.device == "mps":
@@ -92,7 +92,7 @@ def _pick_batch_size(
     n_params: int | None,
     requested: int | str,
 ) -> int:
-    if isinstance(requested, int):
+    if isinstance(requested, int) and not isinstance(requested, bool):
         return max(1, requested)
     if hardware.device == "cpu":
         return 8 if (n_params or 0) < 200_000_000 else 2
@@ -183,13 +183,13 @@ def plan_speed(
 
         raise ConfigError("speed must be 'auto', 'stable', or 'max'.")
 
-    precision = _pick_precision(hardware, speed)
+    precision = _pick_precision(hardware)
     torch_dtype_name = {"bf16": "bfloat16", "fp16": "float16", "fp32": None}[precision]
     resolved_batch = _pick_batch_size(hardware, n_params, batch_size)
     resolved_peft = _pick_peft(peft, n_params, hardware)
     generation = _generation(hardware.capability)
     tf32 = hardware.device == "cuda" and generation in {"ampere+", "hopper+"}
-    fused = hardware.device == "cuda"
+    fused = hardware.device == "cuda" and generation in {"volta/turing", "ampere+", "hopper+"}
     attn = "sdpa" if hardware.device in {"cuda", "cpu", "mps"} else None
     compile_on = speed == "max" and hardware.device == "cuda"
     checkpoint = bool(hardware.vram_gb is not None and hardware.vram_gb < 8 and (n_params or 0) > 80_000_000)
@@ -264,11 +264,23 @@ def apply_runtime_flags(speed: SpeedPlan, hardware: Hardware) -> None:
             pass
 
 
-def maybe_compile(model: Any, speed: SpeedPlan) -> tuple[Any, str | None]:
+def maybe_compile(model: Any, speed: SpeedPlan) -> tuple[Any, Any, str | None]:
+    """Return (train_model, saveable_model, note).
+
+    torch.compile wraps the module; keep the original for saving and for a
+    fallback if the compiled graph fails on the first Trainer step.
+    """
     if not speed.torch_compile:
-        return model, None
+        return model, model, None
     try:
         compiled = torch.compile(model)
-        return compiled, None
+        return compiled, model, None
     except Exception as exc:
-        return model, f"torch.compile failed ({exc}); continuing without it"
+        return model, model, f"torch.compile failed ({exc}); continuing without it"
+
+
+def unwrap_compiled(model: Any) -> Any:
+    orig = getattr(model, "_orig_mod", None)
+    if orig is not None:
+        return orig
+    return model

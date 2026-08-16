@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import pytest
 from datasets import Dataset, DatasetDict
 
-from easytrain.core.data import load_dataset_spec
+from easytrain.core.data import ensure_eval_split, load_dataset_spec
+from easytrain.errors import ConfigError, SchemaError
 from easytrain.tasks import text_classification
 
 
@@ -58,3 +60,37 @@ def test_split_directory(tmp_path):
     assert bundle.validation is not None
     assert bundle.train["text"][0] == "a"
     assert bundle.validation["text"][0] == "b"
+
+
+def test_mapping_collision_raises(tmp_path):
+    csv_path = tmp_path / "both.csv"
+    csv_path.write_text("text,review,label\na,b,0\n", encoding="utf-8")
+    with pytest.raises(SchemaError, match="already has a 'text' column"):
+        load_dataset_spec({"path": str(csv_path), "text": "review", "label": "label"})
+
+
+def test_split_selects_local_directory_split(tmp_path):
+    (tmp_path / "train.csv").write_text("text,label\ntrain-row,0\n", encoding="utf-8")
+    (tmp_path / "validation.csv").write_text("text,label\nval-row,1\n", encoding="utf-8")
+    bundle = load_dataset_spec({"path": str(tmp_path), "split": "validation"})
+    assert list(bundle.train["text"]) == ["val-row"]
+    assert bundle.validation is None
+
+
+def test_unknown_mapping_key_is_rejected(tmp_path):
+    csv_path = tmp_path / "data.csv"
+    csv_path.write_text("text,label\na,0\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="Unknown dataset mapping"):
+        load_dataset_spec({"path": str(csv_path), "foo": "bar"})
+
+
+def test_int_csv_labels_can_stratify():
+    labels = [0, 1] * 10
+    texts = [f"row-{i}" for i in range(20)]
+    ds = Dataset.from_dict({"text": texts, "label": labels})
+    from easytrain.core.data import DatasetBundle
+
+    bundle = DatasetBundle(train=ds, validation=None, test=None, source="mem", mapping={})
+    split = ensure_eval_split(bundle, enabled=True, seed=0, stratify_column="label")
+    assert split.validation is not None
+    assert set(split.validation["label"]) == {0, 1}

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 from typing import Any
 
 from easytrain.constants import __version__
 from easytrain.core.explain import plan_to_config, trainer_snippet
+from easytrain.core.speed import unwrap_compiled
 from easytrain.result import TrainingPlan, TrainRequest
 
 
@@ -32,7 +34,7 @@ def write_model_card(
     yaml = "\n".join(
         [
             "---",
-            "library_name: easytrain",
+            "library_name: transformers",
             f"base_model: {plan.model}",
             f"pipeline_tag: {plan.task_type}",
             "tags:",
@@ -86,6 +88,22 @@ equivalent `Trainer` script.
     return card_path
 
 
+def save_model_artifacts(model: Any, tokenizer: Any, output: str | Path) -> Any:
+    """Save a pipeline-loadable Transformers model (merged, uncompiled)."""
+    path = Path(output)
+    path.mkdir(parents=True, exist_ok=True)
+    model = unwrap_compiled(model)
+    if hasattr(model, "merge_and_unload"):
+        adapter_dir = path / "adapter"
+        adapter_dir.mkdir(parents=True, exist_ok=True)
+        model.save_pretrained(adapter_dir)
+        model = model.merge_and_unload()
+    model.save_pretrained(path)
+    if tokenizer is not None:
+        tokenizer.save_pretrained(str(path))
+    return model
+
+
 def save_trained(
     *,
     trainer: Any,
@@ -96,13 +114,7 @@ def save_trained(
 ) -> None:
     output = Path(request.output)
     output.mkdir(parents=True, exist_ok=True)
-    model = trainer.model
-    if hasattr(model, "merge_and_unload"):
-        model = model.merge_and_unload()
-        model.save_pretrained(output)
-    else:
-        trainer.save_model(str(output))
-    tokenizer.save_pretrained(str(output))
+    trainer.model = save_model_artifacts(trainer.model, tokenizer, output)
     write_educational_artifacts(output, plan)
     write_model_card(output, request, plan, metrics)
 
@@ -110,4 +122,10 @@ def save_trained(
 def maybe_push_to_hub(request: TrainRequest, trainer: Any) -> None:
     if not request.push_to_hub:
         return
-    trainer.push_to_hub()
+    try:
+        trainer.push_to_hub()
+    except Exception as exc:
+        warnings.warn(
+            f"push_to_hub failed ({exc}); local artifacts are in {request.output}",
+            stacklevel=2,
+        )

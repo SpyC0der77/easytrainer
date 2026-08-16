@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from easytrain.core.speed import (
     estimate_params,
     maybe_compile,
     plan_speed,
+    unwrap_compiled,
 )
 from easytrain.errors import ConfigError
 from easytrain.result import TrainingPlan, TrainRequest, TrainResult
@@ -34,19 +36,27 @@ def _load_config(model: str):
 
     try:
         return AutoConfig.from_pretrained(model)
-    except Exception:
+    except (OSError, ValueError) as exc:
+        warnings.warn(f"Could not load AutoConfig for {model!r}: {exc}", stacklevel=2)
         return None
 
 
-def _max_length(tokenizer: Any) -> int:
+def _max_length(tokenizer: Any, config: Any | None = None) -> int:
     raw = getattr(tokenizer, "model_max_length", 512) or 512
     try:
         value = int(raw)
     except (TypeError, ValueError):
         value = 512
     if value > 10_000:
-        return 512
-    return max(8, min(value, 512))
+        value = 512
+    value = max(8, min(value, 512))
+    cap = getattr(config, "max_position_embeddings", None) if config is not None else None
+    if cap:
+        try:
+            value = min(value, int(cap))
+        except (TypeError, ValueError):
+            pass
+    return max(8, value)
 
 
 def _load_model(task, model_name: str, labels, speed):
@@ -74,6 +84,13 @@ def _load_model(task, model_name: str, labels, speed):
 def _apply_peft(model, task, peft_name: str):
     if peft_name in {"none", "", None}:
         return model
+    if peft_name == "qlora":
+        raise ConfigError(
+            "QLoRA is reserved for large LLMs. v1 encoder tasks use full fine-tune or LoRA. "
+            "Pass peft='lora' or peft='auto'."
+        )
+    if peft_name not in {"lora"}:
+        raise ConfigError(f"Unsupported peft={peft_name!r}. Use 'auto', 'lora', or 'none'.")
     from peft import LoraConfig, TaskType, get_peft_model
 
     task_type = getattr(TaskType, task.peft_task_type)
@@ -85,11 +102,6 @@ def _apply_peft(model, task, peft_name: str):
         target_modules="all-linear",
         bias="none",
     )
-    if peft_name == "qlora":
-        raise ConfigError(
-            "QLoRA is reserved for large LLMs. v1 encoder tasks use full fine-tune or LoRA. "
-            "Pass peft='lora' or peft='auto'."
-        )
     return get_peft_model(model, config)
 
 
@@ -103,6 +115,15 @@ def _map_splits(bundle: DatasetBundle, fn) -> DatasetBundle:
     )
 
 
+def _resolve_model_id(request: TrainRequest, training_args: Any | None = None) -> str:
+    hub_id = request.training_args.get("hub_model_id") if request.training_args else None
+    if not hub_id and training_args is not None:
+        hub_id = getattr(training_args, "hub_model_id", None)
+    if hub_id:
+        return str(hub_id)
+    return Path(request.output).name
+
+
 def _build_plan(
     request: TrainRequest,
     task,
@@ -114,15 +135,17 @@ def _build_plan(
     speed,
     learning_rate: float,
     training_args_dict: dict[str, Any],
+    max_length: int,
 ) -> TrainingPlan:
     alignment = None
-    if request.task_type == "token-classification" and tokenizer is not None:
+    formatter = getattr(task, "format_alignment_example", None)
+    if request.task_type == "token-classification" and tokenizer is not None and formatter is not None:
         try:
-            alignment = task.format_alignment_example(
+            alignment = formatter(
                 bundle.train[0],
                 tokenizer,
                 labels,
-                _max_length(tokenizer),
+                max_length,
             )
         except Exception as exc:
             alignment = f"(could not render alignment example: {exc})"
@@ -200,7 +223,7 @@ def run_training(request: TrainRequest) -> TrainResult:
         num_layers=getattr(config, "num_hidden_layers", None) or getattr(config, "n_layers", None),
     )
     learning_rate = request.learning_rate if request.learning_rate is not None else task.default_learning_rate
-    dummy_args = build_training_arguments(
+    training_args = build_training_arguments(
         request,
         speed,
         hardware,
@@ -208,6 +231,7 @@ def run_training(request: TrainRequest) -> TrainResult:
         learning_rate=learning_rate,
         metric_for_best_model=task.metric_for_best_model,
     )
+    max_length = _max_length(tokenizer, config)
     plan = _build_plan(
         request,
         task,
@@ -218,7 +242,8 @@ def run_training(request: TrainRequest) -> TrainResult:
         hardware,
         speed,
         learning_rate,
-        training_arguments_as_dict(dummy_args),
+        training_arguments_as_dict(training_args),
+        max_length,
     )
 
     if request.explain or request.dry_run:
@@ -229,7 +254,7 @@ def run_training(request: TrainRequest) -> TrainResult:
         return TrainResult(
             metrics={},
             output_dir=request.output,
-            model_id=request.output,
+            model_id=_resolve_model_id(request, training_args),
             trainer=None,
             plan=plan,
         )
@@ -237,31 +262,41 @@ def run_training(request: TrainRequest) -> TrainResult:
     apply_runtime_flags(speed, hardware)
     model = _load_model(task, request.model, labels, speed)
     model = _apply_peft(model, task, speed.peft)
-    model, compile_note = maybe_compile(model, speed)
+    train_model, saveable_model, compile_note = maybe_compile(model, speed)
     if compile_note:
         print(compile_note)
         plan.notes.append(compile_note)
 
-    if getattr(model.config, "pad_token_id", None) is None and tokenizer.pad_token_id is not None:
-        model.config.pad_token_id = tokenizer.pad_token_id
+    if getattr(train_model.config, "pad_token_id", None) is None and tokenizer.pad_token_id is not None:
+        train_model.config.pad_token_id = tokenizer.pad_token_id
 
-    max_length = _max_length(tokenizer)
     tokenized = _map_splits(
         bundle,
         lambda split: task.preprocess(split, tokenizer, labels, max_length),
     )
 
-    args = dummy_args
     trainer = Trainer(
-        model=model,
-        args=args,
+        model=train_model,
+        args=training_args,
         train_dataset=tokenized.train,
         eval_dataset=tokenized.validation if plan.eval_enabled else None,
         data_collator=task.get_collator(tokenizer),
         compute_metrics=task.compute_metrics(labels) if plan.eval_enabled else None,
         **trainer_tokenizer_kwarg(tokenizer),
     )
-    trainer.train()
+    try:
+        trainer.train()
+    except Exception as exc:
+        if train_model is not saveable_model:
+            note = f"compiled training failed ({exc}); retrying without torch.compile"
+            print(note)
+            plan.notes.append(note)
+            trainer.model = saveable_model
+            trainer.train()
+        else:
+            raise
+
+    trainer.model = unwrap_compiled(trainer.model)
 
     metrics: dict[str, float] = {}
     if plan.eval_enabled:
@@ -277,11 +312,10 @@ def run_training(request: TrainRequest) -> TrainResult:
     )
     maybe_push_to_hub(request, trainer)
 
-    model_id = Path(request.output).name
     return TrainResult(
         metrics=metrics,
         output_dir=request.output,
-        model_id=model_id,
+        model_id=_resolve_model_id(request, training_args),
         trainer=trainer,
         plan=plan,
     )

@@ -32,15 +32,40 @@ VOCAB = [
     "york",
     "happy",
     "sad",
+    "##zz",
 ]
 
 
 def write_tiny_bert(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     (path / "vocab.txt").write_text("\n".join(VOCAB) + "\n", encoding="utf-8")
-    from transformers import BertConfig, BertModel, BertTokenizerFast
+    import torch
+    from tokenizers import Tokenizer
+    from tokenizers.decoders import WordPiece as WordPieceDecoder
+    from tokenizers.models import WordPiece
+    from tokenizers.pre_tokenizers import BertPreTokenizer
+    from tokenizers.processors import TemplateProcessing
+    from transformers import BertConfig, BertModel, PreTrainedTokenizerFast
 
-    tokenizer = BertTokenizerFast(vocab_file=str(path / "vocab.txt"), do_lower_case=True)
+    vocab_map = {token: index for index, token in enumerate(VOCAB)}
+    backend = Tokenizer(WordPiece(vocab_map, unk_token="[UNK]"))
+    backend.pre_tokenizer = BertPreTokenizer()
+    backend.decoder = WordPieceDecoder(prefix="##")
+    backend.post_processor = TemplateProcessing(
+        single="[CLS] $A [SEP]",
+        pair="[CLS] $A [SEP] $B:1 [SEP]:1",
+        special_tokens=[("[CLS]", vocab_map["[CLS]"]), ("[SEP]", vocab_map["[SEP]"])],
+    )
+    tokenizer = PreTrainedTokenizerFast(
+        tokenizer_object=backend,
+        unk_token="[UNK]",
+        pad_token="[PAD]",
+        cls_token="[CLS]",
+        sep_token="[SEP]",
+        mask_token="[MASK]",
+        do_lower_case=True,
+        model_max_length=128,
+    )
     config = BertConfig(
         vocab_size=len(VOCAB),
         hidden_size=32,
@@ -56,6 +81,7 @@ def write_tiny_bert(path: Path) -> Path:
         sep_token_id=3,
         type_vocab_size=2,
     )
+    torch.manual_seed(0)
     model = BertModel(config)
     tokenizer.save_pretrained(path)
     config.save_pretrained(path)

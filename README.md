@@ -67,13 +67,15 @@ Sklearn-style wrapper, same router:
 ```python
 from easytrain import EasyTrainer
 
-EasyTrainer(
+clf = EasyTrainer(
     type="text-classification",
     model="distilbert/distilbert-base-uncased",
     dataset="my-dataset",
     output="my-model",
     epochs=3,
-).fit().evaluate().save()
+).fit()
+clf.evaluate()
+clf.save()
 ```
 
 `train()` returns a small result: metrics, `output_dir`, model id, underlying `Trainer`, and the resolved plan.

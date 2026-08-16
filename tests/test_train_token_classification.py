@@ -9,7 +9,7 @@ def _dataset():
     train_ds = Dataset.from_dict(
         {
             "tokens": [
-                ["john", "lives", "in", "paris"],
+                ["foozz", "lives", "in", "york"],
                 ["hello", "world"],
                 ["the", "cat", "sat"],
                 ["love", "paris"],
@@ -61,11 +61,20 @@ def test_token_classification_happy_path(tiny_bert_dir, tmp_path):
     assert result.plan.model_class == "AutoModelForTokenClassification"
     assert result.plan.collator == "DataCollatorForTokenClassification"
     assert result.plan.alignment_example is not None
+    assert "-100" in result.plan.alignment_example
+    assert "labels:" in result.plan.alignment_example
     assert (output / "config.json").exists()
     assert (output / "train_snippet.py").exists()
 
+    import json
+
     from transformers import pipeline
+
+    config = json.loads((output / "config.json").read_text(encoding="utf-8"))
+    assert any(name == "B-PER" for name in config["id2label"].values())
 
     ner = pipeline("token-classification", model=str(output), tokenizer=str(output), device=-1)
     out = ner("john lives in paris")
     assert isinstance(out, list)
+    assert out
+    assert any(item.get("entity") for item in out)
