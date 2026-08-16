@@ -17,8 +17,8 @@ The bundled example finds emotion *spans* in Reddit comments from [GoEmotions](h
 | today | `O` |
 
 - `B-{emotion}` starts a span, `I-{emotion}` continues it, `O` is outside any span.
-- Emotion names are taken from each span's `subtype` (or `type`) and normalized to `Joy`, `Sadness`, etc.
-- Empty trailing tokens are stripped; comments with no tokens are dropped.
+- Emotion names are taken from each span's `subtype` (or `type`) and normalized to `Joy`, `Sadness`, etc. Spans missing an emotion label or token indices are skipped.
+- Empty trailing tokens are stripped after BIO tags are assigned (span indices refer to the original token list); comments with no tokens are dropped.
 - Labels are collected from the data (`O` first, then every `B-*` / `I-*` tag that appears).
 - The split is 90/10 train/val (`test_size` and `seed` in `config.json`).
 
