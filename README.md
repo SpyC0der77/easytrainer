@@ -16,7 +16,7 @@ Each task is in its own folder, each following this structure:
 - `infer.py`: Handles inference and prediction. Load trained models and generate predictions in this file, also taking required configurations from `config.json`.
 - `README.md`: Explains the tasks purpose, folder organization, and how to use the code.
 
-**Recommended Structure:**
+**Folder Structure:**
 ```
 .
 ├── config.json    # All configuration parameters and settings
