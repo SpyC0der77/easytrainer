@@ -22,7 +22,9 @@ The bundled example finds emotion *spans* in Reddit comments from [GoEmotions](h
 - Labels are collected from the data (`O` first, then every `B-*` / `I-*` tag that appears).
 - The split is 90/10 train/val (`test_size` and `seed` in `config.json`).
 
-Training fine-tunes `distilbert-base-uncased` as a token classifier. Wordpiece tokens inherit the word's label; subword continuations and special tokens are ignored (`-100`) so they do not affect loss or metrics.
+Training fine-tunes `distilbert-base-uncased` as a token classifier. The base checkpoint has no token-classification head, so Hugging Face initializes `classifier.*` randomly (the MLM head weights are unused). Wordpiece tokens inherit the word's label; subword continuations and special tokens are ignored (`-100`) so they do not affect loss or metrics.
+
+Warmup is `warmup_ratio` of the full run, converted to `warmup_steps` for current Transformers. On a 2-GPU Kaggle session the effective batch is `per_device_train_batch_size × 2`, so the first epoch is the first place `span_f1` is reported (`eval_strategy` is `epoch`).
 
 `evaluate.py` reports:
 

@@ -7,7 +7,10 @@ Kaggle's log viewer (and most notebook captures) do not treat ``\\r`` as
 "overwrite this line", and they do not expose the pane width as ``COLUMNS``.
 A full-width tqdm bar then wraps mid-update and stacks into a staircase.
 This module disables those bars in captured/Kaggle output and uses a compact,
-``dynamic_ncols`` bar in a real terminal so a resize still fits.
+``dynamic_ncols`` bar in a real terminal so a resize still fits. In captured
+environments it also quiets expected Hub/Transformers chatter (unauthenticated
+download notices, DistilBERT load-mismatch tables) so Trainer loss lines stay
+readable.
 """
 
 from __future__ import annotations
@@ -38,6 +41,11 @@ def configure() -> None:
     if disable_tqdm():
         os.environ["TQDM_DISABLE"] = "1"
         os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+        os.environ.setdefault("PYDEVD_DISABLE_FILE_VALIDATION", "1")
+        os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+        os.environ.setdefault("HF_HUB_VERBOSITY", "error")
+        os.environ.setdefault("DATASETS_VERBOSITY", "error")
+        os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
         try:
             from datasets.utils.logging import disable_progress_bar as disable_datasets_bar
 

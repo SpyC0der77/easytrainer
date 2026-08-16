@@ -65,8 +65,14 @@ def build(folder, packages):
         write_file_cell("evaluate.py", (folder / "evaluate.py").read_text(encoding="utf-8")),
         cell("markdown", "## Train"),
         write_file_cell("train.py", (folder / "train.py").read_text(encoding="utf-8")),
-        cell("code", "!python train.py"),
-        cell("code", "!python evaluate.py"),
+        cell(
+            "code",
+            "!PYDEVD_DISABLE_FILE_VALIDATION=1 python -Xfrozen_modules=off train.py",
+        ),
+        cell(
+            "code",
+            "!PYDEVD_DISABLE_FILE_VALIDATION=1 python -Xfrozen_modules=off evaluate.py",
+        ),
     ]
     return {
         "nbformat": 4,
