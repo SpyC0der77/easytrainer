@@ -1,0 +1,60 @@
+"""Example data: GoEmotions spans → per-token BIO labels."""
+
+import json
+from pathlib import Path
+
+from datasets import load_dataset
+
+cfg = json.loads((Path(__file__).parent / "config.json").read_text())
+
+
+def spans_to_bio(tokens, spans):
+    tags = ["O"] * len(tokens)
+    for span in spans:
+        emotion = (span.get("subtype") or span["type"]).replace(" ", "_").replace("-", "_")
+        tags[span["start"]] = f"B-{emotion}"
+        for i in range(span["start"] + 1, span["end"] + 1):
+            tags[i] = f"I-{emotion}"
+    return tags
+
+
+def tag_spans(tags):
+    spans, i = [], 0
+    while i < len(tags):
+        if tags[i].startswith("B-"):
+            emotion, j = tags[i][2:], i + 1
+            while j < len(tags) and tags[j] == f"I-{emotion}":
+                j += 1
+            spans.append((i, j, emotion))
+            i = j
+        else:
+            i += 1
+    return spans
+
+
+def bio_to_spans(tokens, tags):
+    return [(emo, " ".join(tokens[s:e])) for s, e, emo in tag_spans(tags)]
+
+
+def to_example(row):
+    tokens = list(row["data"]["tokens"])
+    while tokens and tokens[-1] == "":
+        tokens.pop()
+    return {
+        "text": row["text"],
+        "tokens": tokens,
+        "bio_tags": spans_to_bio(tokens, row["data"].get("spans") or []),
+    }
+
+
+raw = load_dataset("json", data_files=cfg["data_url"], split="train")
+ds = raw.map(to_example, remove_columns=raw.column_names)
+ds = ds.filter(lambda row: len(row["tokens"]))
+split = ds.train_test_split(test_size=cfg["test_size"], seed=cfg["seed"])
+train_ds, eval_ds = split["train"], split["test"]
+
+labels = sorted({tag for tags in ds["bio_tags"] for tag in tags})
+labels.remove("O")
+labels = ["O"] + labels
+label2id = {name: i for i, name in enumerate(labels)}
+id2label = {i: name for name, i in label2id.items()}

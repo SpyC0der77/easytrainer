@@ -1,0 +1,42 @@
+name: Generate notebooks
+
+on:
+  push:
+    paths-ignore:
+      - "**/*.ipynb"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install training deps
+        run: |
+          uv pip install --system $(python -c "import tomllib; print(' '.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
+
+      - name: Build notebooks
+        run: python .github/scripts/build_notebooks.py
+
+      - name: Commit notebooks
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          find . -name '*.ipynb' -not -path './.git/*' -exec git add {} +
+          if git diff --staged --quiet; then
+            echo "No notebook changes"
+          else
+            git commit -m "Generate training notebooks [skip ci]"
+            git push
+          fi
