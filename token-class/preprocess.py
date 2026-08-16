@@ -17,10 +17,15 @@ cfg = json.loads((Path(__file__).parent / "config.json").read_text())
 
 def spans_to_bio(tokens, spans):
     tags = ["O"] * len(tokens)
+    n = len(tokens)
     for span in spans:
-        emotion = (span.get("subtype") or span["type"]).replace(" ", "_").replace("-", "_")
-        tags[span["start"]] = f"B-{emotion}"
-        for i in range(span["start"] + 1, span["end"] + 1):
+        emotion = span.get("subtype") or span.get("type")
+        start, end = span.get("start"), span.get("end")
+        if not emotion or start is None or end is None or start < 0 or start >= n:
+            continue
+        emotion = emotion.replace(" ", "_").replace("-", "_")
+        tags[start] = f"B-{emotion}"
+        for i in range(start + 1, min(end, n - 1) + 1):
             tags[i] = f"I-{emotion}"
     return tags
 
@@ -45,12 +50,14 @@ def bio_to_spans(tokens, tags):
 
 def to_example(row):
     tokens = list(row["data"]["tokens"])
+    tags = spans_to_bio(tokens, row["data"].get("spans") or [])
     while tokens and tokens[-1] == "":
         tokens.pop()
+        tags.pop()
     return {
         "text": row["text"],
         "tokens": tokens,
-        "bio_tags": spans_to_bio(tokens, row["data"].get("spans") or []),
+        "bio_tags": tags,
     }
 
 
