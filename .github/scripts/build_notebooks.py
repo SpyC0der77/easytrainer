@@ -49,8 +49,16 @@ def build(folder, packages):
         cell("markdown", "## Setup"),
         cell("code", "!pip install uv"),
         cell("code", "!uv pip install --system " + " ".join(packages)),
+        cell(
+            "code",
+            "from IPython.display import HTML, display\n"
+            "display(HTML(\"<style>pre,.output_text{white-space:pre-wrap!important;"
+            "word-break:break-word!important}</style>\"))",
+        ),
         cell("markdown", "## Config"),
         write_file_cell("config.json", (folder / "config.json").read_text(encoding="utf-8")),
+        cell("markdown", "## Logs"),
+        write_file_cell("progress.py", (ROOT / "progress.py").read_text(encoding="utf-8")),
         cell("markdown", "## Preprocess"),
         write_file_cell("preprocess.py", (folder / "preprocess.py").read_text(encoding="utf-8")),
         cell("markdown", "## Evaluate"),

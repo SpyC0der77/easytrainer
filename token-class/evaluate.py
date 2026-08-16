@@ -1,8 +1,11 @@
 """Score a trained token classifier. Example: emotion-span BIO tags."""
 
 import json
+import sys
 from pathlib import Path
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+import progress
 import numpy as np
 import torch
 from transformers import (
@@ -87,6 +90,7 @@ if __name__ == "__main__":
             per_device_eval_batch_size=cfg["per_device_eval_batch_size"],
             fp16=torch.cuda.is_available(),
             report_to="none",
+            disable_tqdm=progress.disable_tqdm(),
         ),
         eval_dataset=tokenized_eval,
         processing_class=tokenizer,

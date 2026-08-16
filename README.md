@@ -2,6 +2,8 @@
 
 Need to train a model? Find your task here, change the parameters, and run it. It's that simple.
 
+`progress.py` at the repo root is shared by every task. It keeps Hugging Face / tqdm logs readable on Kaggle and in notebooks when the output width changes.
+
 **Tasks:**
 - [`token-class`](token-class/) — label each token (example: emotion spans)
 
