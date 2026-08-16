@@ -10,6 +10,7 @@ token-classification dataset.
 import json
 from pathlib import Path
 
+import progress  # noqa: F401  # configure tqdm before datasets starts bars
 from datasets import load_dataset
 
 cfg = json.loads((Path(__file__).parent / "config.json").read_text())

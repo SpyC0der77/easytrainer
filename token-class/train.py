@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 
+import progress
 import torch
 from transformers import (
     AutoModelForTokenClassification,
@@ -53,6 +54,9 @@ trainer = Trainer(
         fp16=torch.cuda.is_available(),
         report_to="none",
         seed=cfg["seed"],
+        disable_tqdm=progress.disable_tqdm(),
+        logging_steps=cfg.get("logging_steps", 50),
+        logging_first_step=True,
     ),
     train_dataset=tokenized_train,
     eval_dataset=tokenized_eval,

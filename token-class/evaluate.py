@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import progress
 import numpy as np
 import torch
 from transformers import (
@@ -87,6 +88,7 @@ if __name__ == "__main__":
             per_device_eval_batch_size=cfg["per_device_eval_batch_size"],
             fp16=torch.cuda.is_available(),
             report_to="none",
+            disable_tqdm=progress.disable_tqdm(),
         ),
         eval_dataset=tokenized_eval,
         processing_class=tokenizer,

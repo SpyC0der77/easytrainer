@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import progress  # noqa: F401
 import torch
 from transformers import AutoModelForTokenClassification, AutoTokenizer
 
