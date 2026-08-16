@@ -21,13 +21,13 @@ preprocess_summary = (
     "ner_tags onto subword tokens. Special tokens and continuation subwords get -100 "
     "so CrossEntropyLoss ignores them."
 )
-mapping_example = '''train(
+mapping_example = """train(
     type="token-classification",
     model="distilbert/distilbert-base-uncased",
     dataset={"path": "ner.jsonl", "tokens": "words", "ner_tags": "tags"},
     output="my-ner-model",
     epochs=3,
-)'''
+)"""
 stratify_column = None
 
 

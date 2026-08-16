@@ -74,8 +74,7 @@ def _build_request(
         raise ConfigError("model is required, e.g. model='distilbert/distilbert-base-uncased'.")
     if dataset is None or dataset == "":
         raise ConfigError(
-            "dataset is required. Pass a Hub id, local CSV/JSON path, "
-            "datasets.Dataset, or a mapping dict."
+            "dataset is required. Pass a Hub id, local CSV/JSON path, datasets.Dataset, or a mapping dict."
         )
     if not output or not isinstance(output, str):
         raise ConfigError("output is required (directory to save the model).")
@@ -127,11 +126,7 @@ class EasyTrainer:
         if self.result.trainer is None:
             return dict(self.result.metrics)
         metrics = self.result.trainer.evaluate()
-        numeric = {
-            key: float(value)
-            for key, value in metrics.items()
-            if isinstance(value, (int, float))
-        }
+        numeric = {key: float(value) for key, value in metrics.items() if isinstance(value, (int, float))}
         self.result.metrics.update(numeric)
         return numeric
 

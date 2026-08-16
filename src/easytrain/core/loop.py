@@ -16,7 +16,7 @@ from easytrain.core.speed import (
     plan_speed,
 )
 from easytrain.errors import ConfigError
-from easytrain.result import TrainRequest, TrainResult, TrainingPlan
+from easytrain.result import TrainingPlan, TrainRequest, TrainResult
 from easytrain.tasks import get_task
 
 
@@ -199,9 +199,7 @@ def run_training(request: TrainRequest) -> TrainResult:
         hidden_size=getattr(config, "hidden_size", None) or getattr(config, "dim", None),
         num_layers=getattr(config, "num_hidden_layers", None) or getattr(config, "n_layers", None),
     )
-    learning_rate = (
-        request.learning_rate if request.learning_rate is not None else task.default_learning_rate
-    )
+    learning_rate = request.learning_rate if request.learning_rate is not None else task.default_learning_rate
     dummy_args = build_training_arguments(
         request,
         speed,

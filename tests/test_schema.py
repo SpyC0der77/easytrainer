@@ -27,7 +27,7 @@ def test_text_classification_accepts_sentence_pair():
 
 def test_text_classification_error_includes_mapping_example():
     ds = Dataset.from_dict({"review": ["a"], "sentiment": [0]})
-    with pytest.raises(SchemaError, match="dataset=\\{\"path\""):
+    with pytest.raises(SchemaError, match='dataset=\\{"path"'):
         text_classification.validate_schema(ds)
 
 

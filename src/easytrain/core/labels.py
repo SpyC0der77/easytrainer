@@ -103,8 +103,7 @@ def infer_label_info(dataset, column: str, *, kind: str) -> LabelInfo:
             names=names,
         )
     raise SchemaError(
-        f"Mixed or unsupported label types in {column!r}: {unique[:8]!r}. "
-        "Use a single integer or string label space."
+        f"Mixed or unsupported label types in {column!r}: {unique[:8]!r}. Use a single integer or string label space."
     )
 
 
@@ -128,10 +127,7 @@ def encode_label_value(value: Any, labels: LabelInfo) -> int:
     value = _python_label(value)
     if isinstance(value, int) and not isinstance(value, bool):
         if value < 0 or value >= labels.num_labels:
-            raise SchemaError(
-                f"Label id {value} is outside 0..{labels.num_labels - 1} "
-                f"({labels.names})."
-            )
+            raise SchemaError(f"Label id {value} is outside 0..{labels.num_labels - 1} ({labels.names}).")
         return value
     key = str(value)
     if key not in labels.label2id:

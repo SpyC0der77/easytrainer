@@ -81,7 +81,4 @@ class TrainResult:
     def __repr__(self) -> str:
         metric_bits = ", ".join(f"{k}={v:.4f}" for k, v in list(self.metrics.items())[:4])
         metrics = metric_bits or "(none)"
-        return (
-            f"TrainResult(task={self.plan.task_type!r}, output={self.output_dir!r}, "
-            f"metrics={{{metrics}}})"
-        )
+        return f"TrainResult(task={self.plan.task_type!r}, output={self.output_dir!r}, metrics={{{metrics}}})"

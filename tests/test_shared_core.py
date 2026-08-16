@@ -81,7 +81,17 @@ def test_both_tasks_route_through_run_training(monkeypatch):
 
     def fake_run(request):
         seen.append(request.task_type)
-        return type("R", (), {"metrics": {}, "output_dir": request.output, "model_id": "x", "trainer": None, "plan": None})()
+        return type(
+            "R",
+            (),
+            {
+                "metrics": {},
+                "output_dir": request.output,
+                "model_id": "x",
+                "trainer": None,
+                "plan": None,
+            },
+        )()
 
     monkeypatch.setattr("easytrain.api.run_training", fake_run)
     train(type="text-classification", model="m", dataset="d", output="o", epochs=1)

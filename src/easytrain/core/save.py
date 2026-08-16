@@ -6,7 +6,7 @@ from typing import Any
 
 from easytrain.constants import __version__
 from easytrain.core.explain import plan_to_config, trainer_snippet
-from easytrain.result import TrainRequest, TrainingPlan
+from easytrain.result import TrainingPlan, TrainRequest
 
 
 def write_educational_artifacts(output_dir: str | Path, plan: TrainingPlan) -> None:

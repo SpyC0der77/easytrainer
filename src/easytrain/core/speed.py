@@ -192,9 +192,7 @@ def plan_speed(
     fused = hardware.device == "cuda"
     attn = "sdpa" if hardware.device in {"cuda", "cpu", "mps"} else None
     compile_on = speed == "max" and hardware.device == "cuda"
-    checkpoint = bool(
-        hardware.vram_gb is not None and hardware.vram_gb < 8 and (n_params or 0) > 80_000_000
-    )
+    checkpoint = bool(hardware.vram_gb is not None and hardware.vram_gb < 8 and (n_params or 0) > 80_000_000)
     workers = 2 if hardware.device == "cuda" else 0
     pin = hardware.device == "cuda"
     vram = estimate_vram_gb(n_params, resolved_batch, hidden_size, num_layers, precision)
@@ -240,10 +238,7 @@ def _why_fast(
     compile_on: bool,
 ) -> str:
     if hardware.device == "cpu":
-        return (
-            "CPU fp32; no CUDA. Install a CUDA build of PyTorch for BF16, SDPA on GPU, "
-            "and fused AdamW."
-        )
+        return "CPU fp32; no CUDA. Install a CUDA build of PyTorch for BF16, SDPA on GPU, and fused AdamW."
     if hardware.device == "mps":
         return f"Apple MPS with {precision}; SDPA attention, batch {batch}."
     bits = [f"{precision.upper()} on {hardware.name}"]

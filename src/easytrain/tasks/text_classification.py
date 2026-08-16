@@ -20,13 +20,13 @@ preprocess_summary = (
     "Tokenize the whole sequence (or sentence pair) with truncation. "
     "The `label` column becomes `labels` for CrossEntropyLoss."
 )
-mapping_example = '''train(
+mapping_example = """train(
     type="text-classification",
     model="distilbert/distilbert-base-uncased",
     dataset={"path": "reviews.csv", "text": "review", "label": "sentiment"},
     output="my-model",
     epochs=3,
-)'''
+)"""
 stratify_column = "label"
 
 

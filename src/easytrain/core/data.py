@@ -36,9 +36,7 @@ def _as_dataset_dict(obj: Any):
     from datasets import Dataset, DatasetDict, IterableDataset
 
     if isinstance(obj, IterableDataset):
-        raise ConfigError(
-            "IterableDataset is not supported in v1. Load a map-style datasets.Dataset."
-        )
+        raise ConfigError("IterableDataset is not supported in v1. Load a map-style datasets.Dataset.")
     if isinstance(obj, DatasetDict):
         return obj
     if isinstance(obj, Dataset):
@@ -100,13 +98,12 @@ def _load_local_file(path: Path):
         return hf_load_dataset("json", data_files=str(path))
     if suffix == ".parquet":
         return hf_load_dataset("parquet", data_files=str(path))
-    raise ConfigError(
-        f"Unsupported local file type {suffix!r} for {path}. Use CSV, JSON/JSONL, or Parquet."
-    )
+    raise ConfigError(f"Unsupported local file type {suffix!r} for {path}. Use CSV, JSON/JSONL, or Parquet.")
 
 
 def _load_local_dir(path: Path):
-    from datasets import DatasetDict, load_dataset as hf_load_dataset
+    from datasets import DatasetDict
+    from datasets import load_dataset as hf_load_dataset
 
     files: dict[str, str] = {}
     for file in sorted(path.iterdir()):
@@ -120,11 +117,7 @@ def _load_local_dir(path: Path):
         elif stem in SPLIT_TEST:
             files["test"] = str(file)
     if not files:
-        singles = [
-            file
-            for file in path.iterdir()
-            if file.suffix.lower() in {".csv", ".json", ".jsonl", ".parquet"}
-        ]
+        singles = [file for file in path.iterdir() if file.suffix.lower() in {".csv", ".json", ".jsonl", ".parquet"}]
         if len(singles) == 1:
             return _load_local_file(singles[0])
         raise ConfigError(
@@ -215,9 +208,7 @@ def load_dataset_spec(dataset: Any) -> DatasetBundle:
         if len(dataset_dict) == 1:
             train = next(iter(dataset_dict.values()))
         else:
-            raise SchemaError(
-                f"No train split found. Available splits: {list(dataset_dict.keys())}"
-            )
+            raise SchemaError(f"No train split found. Available splits: {list(dataset_dict.keys())}")
 
     return DatasetBundle(
         train=train,
