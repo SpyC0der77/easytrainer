@@ -103,6 +103,13 @@ def trainer_snippet(plan: TrainingPlan) -> str:
         tokenize_block = f"""
 label2id = {label2id!r}
 
+def encode_label(value):
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    return label2id[value]
+
 def tokenize_and_align(batch):
     encoded = tokenizer(batch["tokens"], truncation=True, is_split_into_words=True)
     aligned = []
@@ -114,8 +121,7 @@ def tokenize_and_align(batch):
             if word_id is None:
                 ids.append(-100)
             elif word_id != previous:
-                tag = tags[word_id]
-                ids.append(tag if isinstance(tag, int) else label2id[tag])
+                ids.append(encode_label(tags[word_id]))
             else:
                 ids.append(-100)
             previous = word_id
@@ -127,18 +133,32 @@ def tokenize_and_align(batch):
         tokenize_block = f"""
 label2id = {label2id!r}
 
+def encode_label(value):
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    return label2id[value]
+
 def tokenize(batch):
     encoded = tokenizer(batch["sentence1"], batch["sentence2"], truncation=True)
-    encoded["labels"] = [v if isinstance(v, int) else label2id[v] for v in batch["label"]]
+    encoded["labels"] = [encode_label(v) for v in batch["label"]]
     return encoded
 """.strip()
     else:
         tokenize_block = f"""
 label2id = {label2id!r}
 
+def encode_label(value):
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    return label2id[value]
+
 def tokenize(batch):
     encoded = tokenizer(batch["text"], truncation=True)
-    encoded["labels"] = [v if isinstance(v, int) else label2id[v] for v in batch["label"]]
+    encoded["labels"] = [encode_label(v) for v in batch["label"]]
     return encoded
 """.strip()
     collator_import = plan.collator

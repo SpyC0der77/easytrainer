@@ -68,13 +68,10 @@ EasyTrain does not guess column names. Rename them, or pass a mapping:
 
 
 def _is_sequence(value: Any) -> bool:
-    if isinstance(value, (str, bytes)) or value is None:
-        return False
-    try:
-        iter(value)
-    except TypeError:
-        return False
-    return True
+    if isinstance(value, (list, tuple)):
+        return True
+    ndim = getattr(value, "ndim", None)
+    return ndim == 1 and hasattr(value, "tolist")
 
 
 def _validate_token_rows(dataset: Dataset) -> None:

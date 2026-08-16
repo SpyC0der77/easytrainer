@@ -47,6 +47,26 @@ def test_loss_metric_sets_greater_is_better_false(tmp_path):
     assert args.greater_is_better is False
 
 
+def test_perplexity_is_lower_is_better(tmp_path):
+    args = _args(tmp_path, metric_for_best_model="eval_perplexity")
+    assert args.greater_is_better is False
+
+
+def test_mse_name_is_lower_is_better(tmp_path):
+    args = _args(tmp_path, metric_for_best_model="eval_mean_squared_error")
+    assert args.greater_is_better is False
+
+
+def test_unknown_metric_requires_explicit_greater_is_better(tmp_path):
+    with pytest.raises(ConfigError, match="greater_is_better"):
+        _args(tmp_path, metric_for_best_model="eval_custom_score")
+
+
+def test_unknown_metric_accepts_explicit_greater_is_better(tmp_path):
+    args = _args(tmp_path, metric_for_best_model="eval_custom_score", greater_is_better=False)
+    assert args.greater_is_better is False
+
+
 def test_explicit_greater_is_better_is_preserved(tmp_path):
     args = _args(tmp_path, metric_for_best_model="eval_loss", greater_is_better=True)
     assert args.greater_is_better is True

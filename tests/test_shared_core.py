@@ -38,10 +38,14 @@ def test_required_arg_validation():
         )
     with pytest.raises(ConfigError, match="epochs"):
         train(type="text-classification", model="m", dataset="d", output="o", epochs=float("inf"))
+    with pytest.raises(ConfigError, match="epochs"):
+        train(type="text-classification", model="m", dataset="d", output="o", epochs=True)
     with pytest.raises(ConfigError, match="batch_size"):
         train(type="text-classification", model="m", dataset="d", output="o", epochs=1, batch_size=2.5)
     with pytest.raises(ConfigError, match="batch_size"):
         train(type="text-classification", model="m", dataset="d", output="o", epochs=1, batch_size=True)
+    with pytest.raises(ConfigError, match="peft"):
+        train(type="text-classification", model="m", dataset="d", output="o", epochs=1, peft=1)
     with pytest.raises(ConfigError, match="speed"):
         train(type="text-classification", model="m", dataset="d", output="o", epochs=1, speed=["max"])
 

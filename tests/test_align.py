@@ -70,3 +70,13 @@ def test_mixed_int_and_string_labels_are_rejected():
 
     with pytest.raises(SchemaError, match="Mixed"):
         infer_label_info(FakeDataset(), "label", kind="class")
+
+
+def test_unhashable_labels_fall_back_to_string_key():
+    from easytrain.core.labels import _unique_values
+
+    class FakeDataset:
+        def __getitem__(self, key):
+            return [{"a": 1}, {"a": 1}, {"b": 2}]
+
+    assert _unique_values(FakeDataset(), "label") == [{"a": 1}, {"b": 2}]

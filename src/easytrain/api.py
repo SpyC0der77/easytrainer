@@ -79,6 +79,8 @@ def _build_request(
         )
     if not output or not isinstance(output, str):
         raise ConfigError("output is required (directory to save the model).")
+    if isinstance(epochs, bool):
+        raise ConfigError("epochs must be a finite positive number.")
     try:
         epochs_value = float(epochs)
     except (TypeError, ValueError) as exc:
@@ -93,10 +95,9 @@ def _build_request(
         speed_ok = False
     if not speed_ok:
         raise ConfigError("speed must be 'auto', 'stable', or 'max'.")
-    try:
-        peft_ok = peft in {"auto", "lora", "qlora", "none", "full", True, False}
-    except TypeError:
-        peft_ok = False
+    peft_ok = (
+        peft is True or peft is False or (isinstance(peft, str) and peft in {"auto", "lora", "qlora", "none", "full"})
+    )
     if not peft_ok:
         raise ConfigError("peft must be 'auto', 'lora', 'qlora', 'none', True, or False.")
     return TrainRequest(

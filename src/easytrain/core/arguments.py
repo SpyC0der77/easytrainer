@@ -17,11 +17,59 @@ def _normalize_user_training_args(user: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+_LOWER_IS_BETTER = (
+    "loss",
+    "perplexity",
+    "ppl",
+    "mse",
+    "mae",
+    "rmse",
+    "error",
+    "nll",
+    "cross_entropy",
+    "crossentropy",
+)
+_HIGHER_IS_BETTER = (
+    "f1",
+    "accuracy",
+    "precision",
+    "recall",
+    "auc",
+    "auroc",
+    "ap",
+    "map",
+    "r2",
+    "spearman",
+    "pearson",
+    "bleu",
+    "rouge",
+    "meteor",
+    "em",
+    "exact_match",
+)
+
+
+def _metric_basename(metric_name: Any) -> str:
+    name = str(metric_name or "").strip().lower()
+    if name.startswith("eval_"):
+        name = name[5:]
+    return name
+
+
 def _greater_is_better_for_metric(metric_name: Any, *, explicit: Any | None) -> bool:
     if explicit is not None:
         return bool(explicit)
-    name = str(metric_name or "")
-    return not name.endswith("loss")
+    name = _metric_basename(metric_name)
+    if not name:
+        return True
+    if name in _LOWER_IS_BETTER or any(name.endswith(suffix) for suffix in _LOWER_IS_BETTER):
+        return False
+    if name in _HIGHER_IS_BETTER or any(name.endswith(suffix) for suffix in _HIGHER_IS_BETTER):
+        return True
+    raise ConfigError(
+        f"Cannot infer greater_is_better for metric {metric_name!r}. "
+        "Pass greater_is_better=True or False in **training_args."
+    )
 
 
 def build_training_arguments(

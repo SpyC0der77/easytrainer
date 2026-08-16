@@ -35,6 +35,8 @@ def test_dry_run_writes_plan_without_training(tiny_bert_dir, tmp_path, capsys):
     assert (output / "train_config.json").exists()
     assert (output / "train_snippet.py").exists()
     compile((output / "train_snippet.py").read_text(encoding="utf-8"), str(output / "train_snippet.py"), "exec")
+    snippet = (output / "train_snippet.py").read_text(encoding="utf-8")
+    assert "isinstance(value, bool)" in snippet
     assert not (output / "model.safetensors").exists()
     assert not (output / "pytorch_model.bin").exists()
 

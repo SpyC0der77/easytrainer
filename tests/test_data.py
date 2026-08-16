@@ -69,7 +69,12 @@ def test_mapping_collision_raises(tmp_path):
         load_dataset_spec({"path": str(csv_path), "text": "review", "label": "label"})
 
 
-def test_split_selects_local_directory_split(tmp_path):
+def test_split_selects_dev_alias(tmp_path):
+    (tmp_path / "train.csv").write_text("text,label\ntrain-row,0\n", encoding="utf-8")
+    (tmp_path / "dev.csv").write_text("text,label\ndev-row,1\n", encoding="utf-8")
+    bundle = load_dataset_spec({"path": str(tmp_path), "split": "dev"})
+    assert list(bundle.train["text"]) == ["dev-row"]
+    assert bundle.validation is None
     (tmp_path / "train.csv").write_text("text,label\ntrain-row,0\n", encoding="utf-8")
     (tmp_path / "validation.csv").write_text("text,label\nval-row,1\n", encoding="utf-8")
     bundle = load_dataset_spec({"path": str(tmp_path), "split": "validation"})
@@ -94,3 +99,16 @@ def test_int_csv_labels_can_stratify():
     split = ensure_eval_split(bundle, enabled=True, seed=0, stratify_column="label")
     assert split.validation is not None
     assert set(split.validation["label"]) == {0, 1}
+
+
+def test_sparse_integer_labels_stratify_without_huge_classlabel():
+    labels = [0, 1_000_000] * 10
+    texts = [f"row-{i}" for i in range(20)]
+    ds = Dataset.from_dict({"text": texts, "label": labels})
+    from easytrain.core.data import DatasetBundle
+
+    bundle = DatasetBundle(train=ds, validation=None, test=None, source="mem", mapping={})
+    split = ensure_eval_split(bundle, enabled=True, seed=0, stratify_column="label")
+    assert split.validation is not None
+    assert set(split.validation["label"]) == {0, 1_000_000}
+    assert set(split.train["label"]) == {0, 1_000_000}

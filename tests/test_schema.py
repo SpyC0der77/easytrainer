@@ -55,6 +55,18 @@ def test_token_classification_rejects_length_mismatch_longer():
         token_classification.validate_schema(ds)
 
 
+def test_token_classification_error_includes_mapping_example():
+    ds = Dataset.from_dict({"words": [["a"]]})
+    with pytest.raises(SchemaError, match="ner.jsonl"):
+        token_classification.validate_schema(ds)
+
+
+def test_token_classification_rejects_mapping_rows():
+    ds = Dataset.from_dict({"tokens": [{"0": "a"}], "ner_tags": [{"0": "O"}]})
+    with pytest.raises(SchemaError, match="must both be lists"):
+        token_classification.validate_schema(ds)
+
+
 def test_token_classification_rejects_unnamed_integer_tags():
     ds = Dataset.from_dict({"tokens": [["a", "b"]], "ner_tags": [[0, 1]]})
     token_classification.validate_schema(ds)

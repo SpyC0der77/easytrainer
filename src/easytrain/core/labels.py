@@ -47,11 +47,14 @@ def _unique_values(dataset, column: str) -> list[Any]:
             item = _python_label(item)
             try:
                 key = (type(item), item)
+                if key in seen:
+                    continue
+                seen.add(key)
             except TypeError:
                 key = (type(item).__name__, str(item))
-            if key in seen:
-                continue
-            seen.add(key)
+                if key in seen:
+                    continue
+                seen.add(key)
             values.append(item)
     return values
 

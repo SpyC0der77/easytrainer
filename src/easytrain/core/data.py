@@ -150,15 +150,27 @@ def _load_hub(path: str, name: str | None = None, split: str | None = None):
     return hf_load_dataset(hub_name, **kwargs)
 
 
+def _canonical_split_name(split: str) -> str:
+    key = split.lower()
+    if key in SPLIT_TRAIN:
+        return "train"
+    if key in SPLIT_VAL:
+        return "validation"
+    if key in SPLIT_TEST:
+        return "test"
+    return split
+
+
 def _restrict_to_split(loaded, split: str | None):
     if not split:
         return loaded
     from datasets import DatasetDict
 
     if isinstance(loaded, DatasetDict):
-        if split not in loaded:
-            raise SchemaError(f"split={split!r} was not found. Available splits: {list(loaded.keys())}")
-        return loaded[split]
+        for name in (split, _canonical_split_name(split)):
+            if name in loaded:
+                return loaded[name]
+        raise SchemaError(f"split={split!r} was not found. Available splits: {list(loaded.keys())}")
     return loaded
 
 
@@ -260,8 +272,14 @@ def ensure_eval_split(
     if stratify_column and stratify_column in bundle.train.column_names:
         prepared = _prepare_stratify_column(bundle.train, stratify_column)
         if prepared is not None:
+            dataset, strat_name = prepared
             try:
-                split = prepared.train_test_split(stratify_by_column=stratify_column, **kwargs)
+                split = dataset.train_test_split(stratify_by_column=strat_name, **kwargs)
+                if strat_name == "_easytrain_stratify":
+                    split = {
+                        "train": split["train"].remove_columns([strat_name]),
+                        "test": split["test"].remove_columns([strat_name]),
+                    }
             except Exception:
                 split = None
         if split is None:
@@ -276,21 +294,32 @@ def ensure_eval_split(
     return replace(bundle, train=split["train"], validation=split["test"])
 
 
-def _prepare_stratify_column(dataset, column: str):
-    """Return a dataset whose `column` is a ClassLabel so HF can stratify, or None."""
+def _prepare_stratify_column(dataset, column: str) -> tuple[Any, str] | None:
+    """Return `(dataset, column)` ready for HF stratify, without remapping labels."""
     from datasets import ClassLabel
 
     feature = dataset.features.get(column) if hasattr(dataset, "features") else None
     if feature is not None and getattr(feature, "names", None):
-        return dataset
-    dtype = str(getattr(feature, "dtype", feature) or "")
+        return dataset, column
     try:
-        if "int" in dtype.lower():
-            values = [int(value) for value in dataset[column]]
-            if not values or min(values) < 0:
-                return None
-            names = [str(index) for index in range(max(values) + 1)]
-            return dataset.cast_column(column, ClassLabel(names=names))
-        return dataset.class_encode_column(column)
+        ranks: list[int] = []
+        unique: list[Any] = []
+        index_of: dict[Any, int] = {}
+        for raw in dataset[column]:
+            value = raw
+            if isinstance(value, bool):
+                value = int(value)
+            elif hasattr(value, "item") and type(value).__module__ == "numpy":
+                value = value.item()
+            if value not in index_of:
+                index_of[value] = len(unique)
+                unique.append(value)
+            ranks.append(index_of[value])
+        if len(unique) < 2:
+            return None
+        names = [str(item) for item in unique]
+        mapped = dataset.add_column("_easytrain_stratify", ranks)
+        mapped = mapped.cast_column("_easytrain_stratify", ClassLabel(names=names))
+        return mapped, "_easytrain_stratify"
     except Exception:
         return None
