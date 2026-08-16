@@ -1,4 +1,11 @@
-"""Example data: GoEmotions spans → per-token BIO labels."""
+"""
+THIS FILE IS SPECIFICALLY FOR THE GOEMOTIONS BIO DATASET.
+
+It loads sdeakin/GoEmotions-Projected-BIO-Emotions, converts emotion
+spans into per-token BIO tags (B-Joy, I-Sadness, O, ...), and splits
+train/val. Swap this file (and config.json) for any other
+token-classification dataset.
+"""
 
 import json
 from pathlib import Path

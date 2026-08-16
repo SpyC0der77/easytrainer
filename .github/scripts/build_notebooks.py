@@ -53,9 +53,12 @@ def build(folder, packages):
         write_file_cell("config.json", (folder / "config.json").read_text(encoding="utf-8")),
         cell("markdown", "## Preprocess"),
         write_file_cell("preprocess.py", (folder / "preprocess.py").read_text(encoding="utf-8")),
+        cell("markdown", "## Evaluate"),
+        write_file_cell("evaluate.py", (folder / "evaluate.py").read_text(encoding="utf-8")),
         cell("markdown", "## Train"),
         write_file_cell("train.py", (folder / "train.py").read_text(encoding="utf-8")),
         cell("code", "!python train.py"),
+        cell("code", "!python evaluate.py"),
     ]
     return {
         "nbformat": 4,

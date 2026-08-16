@@ -1,3 +1,3 @@
 Read about this project in the README.md. Other instructions you should follow that are not in the README are as follows:
 
-All preprocessing (dataset manipulation, schema migrationo, etc.) should go in a preprocess.py file. The train.py should ONLY do the training and should import the dataset from preprocess.py. Inference should go in a infer.py file. 
+All preprocessing (dataset manipulation, schema migrationo, etc.) should go in a preprocess.py file. The train.py should ONLY do the training and should import the dataset from preprocess.py. Evaluation metrics and scoring a saved model should go in an evaluate.py file. Inference should go in a infer.py file. 
