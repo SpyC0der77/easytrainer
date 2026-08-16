@@ -41,6 +41,10 @@ Install a PyTorch build that matches your machine first (`cpu`, `cu124`, …). E
 
 Tested lower bounds: Python 3.10+, `torch>=2.2`, `transformers>=4.44`, `datasets>=2.21`, `accelerate>=0.34`, `peft>=0.12`, `evaluate>=0.4.3`, `seqeval>=1.2.2`.
 
+## Examples
+
+Runnable scripts and sample CSVs/JSONL live in [`examples/`](examples/). Start with `python examples/dry_run.py`, then `python examples/text_classification.py`.
+
 ## API
 
 **Required:** `type`, `model`, `dataset`, `output`, `epochs`.

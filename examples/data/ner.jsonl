@@ -1,0 +1,12 @@
+{"tokens": ["Alice", "lives", "in", "Paris"], "ner_tags": ["B-PER", "O", "O", "B-LOC"]}
+{"tokens": ["Bob", "works", "at", "Google"], "ner_tags": ["B-PER", "O", "O", "B-ORG"]}
+{"tokens": ["New", "York", "is", "busy"], "ner_tags": ["B-LOC", "I-LOC", "O", "O"]}
+{"tokens": ["Microsoft", "hired", "Carol", "yesterday"], "ner_tags": ["B-ORG", "O", "B-PER", "O"]}
+{"tokens": ["They", "met", "in", "Berlin"], "ner_tags": ["O", "O", "O", "B-LOC"]}
+{"tokens": ["Dave", "visited", "the", "United", "Nations"], "ner_tags": ["B-PER", "O", "O", "B-ORG", "I-ORG"]}
+{"tokens": ["London", "and", "Tokyo", "are", "huge"], "ner_tags": ["B-LOC", "O", "B-LOC", "O", "O"]}
+{"tokens": ["hello", "world"], "ner_tags": ["O", "O"]}
+{"tokens": ["Eve", "flew", "to", "Lisbon"], "ner_tags": ["B-PER", "O", "O", "B-LOC"]}
+{"tokens": ["OpenAI", "is", "based", "in", "San", "Francisco"], "ner_tags": ["B-ORG", "O", "O", "O", "B-LOC", "I-LOC"]}
+{"tokens": ["the", "cat", "sat"], "ner_tags": ["O", "O", "O"]}
+{"tokens": ["Frank", "joined", "NASA"], "ner_tags": ["B-PER", "O", "B-ORG"]}

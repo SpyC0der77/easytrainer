@@ -1,0 +1,12 @@
+{"words": ["Ada", "Lovelace", "lived", "in", "London"], "tags": ["B-PER", "I-PER", "O", "O", "B-LOC"]}
+{"words": ["IBM", "opened", "an", "office", "in", "Austin"], "tags": ["B-ORG", "O", "O", "O", "O", "B-LOC"]}
+{"words": ["Grace", "Hopper", "worked", "on", "COBOL"], "tags": ["B-PER", "I-PER", "O", "O", "O"]}
+{"words": ["They", "trained", "in", "Boston"], "tags": ["O", "O", "O", "B-LOC"]}
+{"words": ["Stanford", "University", "is", "in", "California"], "tags": ["B-ORG", "I-ORG", "O", "O", "B-LOC"]}
+{"words": ["hello", "there"], "tags": ["O", "O"]}
+{"words": ["Linus", "spoke", "in", "Helsinki"], "tags": ["B-PER", "O", "O", "B-LOC"]}
+{"words": ["Apple", "announced", "the", "event"], "tags": ["B-ORG", "O", "O", "O"]}
+{"words": ["Rio", "de", "Janeiro", "is", "warm"], "tags": ["B-LOC", "I-LOC", "I-LOC", "O", "O"]}
+{"words": ["the", "dog", "ran"], "tags": ["O", "O", "O"]}
+{"words": ["Marie", "Curie", "studied", "in", "Paris"], "tags": ["B-PER", "I-PER", "O", "O", "B-LOC"]}
+{"words": ["UNESCO", "meets", "in", "Paris"], "tags": ["B-ORG", "O", "O", "B-LOC"]}

@@ -1,0 +1,17 @@
+sentence1,sentence2,label
+A man is playing an acoustic guitar on a porch.,Someone is making music.,entailment
+A woman is jogging through a park.,A woman is sitting on a couch.,contradiction
+Two children are building a sandcastle.,The kids are at the beach.,neutral
+A chef is chopping onions in a kitchen.,Someone is preparing food.,entailment
+A dog is sleeping on a rug.,The dog is chasing a tennis ball.,contradiction
+People are waiting at a bus stop.,It might rain later.,neutral
+A girl is reading a book in a library.,Someone is looking at a book.,entailment
+A soccer team is celebrating a goal.,The stadium is empty.,contradiction
+A cyclist is riding down a hill.,The rider is outdoors.,neutral
+A baker is taking bread out of an oven.,Someone is baking.,entailment
+A cat is perched on a windowsill.,The cat is swimming in a pool.,contradiction
+Friends are sharing a pizza.,They may be hungry.,neutral
+A teacher is writing on a chalkboard.,Someone is in a classroom.,entailment
+A boat is docked at the marina.,The boat is sailing across the ocean.,contradiction
+A photographer is taking pictures of a wedding.,There is a camera involved.,neutral
+A nurse is checking a patient's pulse.,Someone is providing medical care.,entailment
