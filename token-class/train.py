@@ -4,7 +4,6 @@ import json
 import math
 import os
 import sys
-import warnings
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -17,12 +16,6 @@ from transformers import (
     Trainer,
     TrainingArguments,
     set_seed,
-)
-
-warnings.filterwarnings(
-    "ignore",
-    message="Was asked to gather along dimension 0",
-    category=UserWarning,
 )
 
 from evaluate import compute_metrics, make_tokenize
@@ -51,11 +44,6 @@ tokenize = make_tokenize(tokenizer)
 tokenized_train = train_ds.map(tokenize, batched=True, remove_columns=train_ds.column_names)
 tokenized_eval = eval_ds.map(tokenize, batched=True, remove_columns=eval_ds.column_names)
 
-n_devices = max(torch.cuda.device_count(), 1)
-batch_size = cfg["per_device_train_batch_size"] * n_devices
-steps_per_epoch = max(1, math.ceil(len(tokenized_train) / batch_size))
-warmup_steps = int(steps_per_epoch * cfg["num_train_epochs"] * cfg["warmup_ratio"])
-
 trainer = Trainer(
     model=model,
     args=TrainingArguments(
@@ -63,9 +51,9 @@ trainer = Trainer(
         num_train_epochs=cfg["num_train_epochs"],
         per_device_train_batch_size=cfg["per_device_train_batch_size"],
         per_device_eval_batch_size=cfg["per_device_eval_batch_size"],
+        gradient_accumulation_steps=cfg.get("gradient_accumulation_steps", 1),
         learning_rate=cfg["learning_rate"],
         weight_decay=cfg["weight_decay"],
-        warmup_steps=warmup_steps,
         eval_strategy=cfg["eval_strategy"],
         save_strategy=cfg["save_strategy"],
         save_total_limit=cfg.get("save_total_limit", 2),
@@ -84,5 +72,10 @@ trainer = Trainer(
     data_collator=DataCollatorForTokenClassification(tokenizer),
     compute_metrics=compute_metrics,
 )
+train_loader = trainer.get_train_dataloader()
+grad_accum = max(trainer.args.gradient_accumulation_steps, 1)
+updates_per_epoch = max(len(train_loader) // grad_accum, 1)
+total_updates = math.ceil(trainer.args.num_train_epochs * updates_per_epoch)
+trainer.args.warmup_steps = math.ceil(total_updates * cfg["warmup_ratio"])
 trainer.train()
 trainer.save_model(str(Path(output_dir) / "best_model"))
