@@ -1,8 +1,10 @@
 """Run a trained token classifier. Example: emotion-span BIO tags."""
 
 import json
+import sys
 from pathlib import Path
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 import progress  # noqa: F401
 import torch
 from transformers import AutoModelForTokenClassification, AutoTokenizer

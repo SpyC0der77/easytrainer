@@ -58,7 +58,7 @@ def build(folder, packages):
         cell("markdown", "## Config"),
         write_file_cell("config.json", (folder / "config.json").read_text(encoding="utf-8")),
         cell("markdown", "## Logs"),
-        write_file_cell("progress.py", (folder / "progress.py").read_text(encoding="utf-8")),
+        write_file_cell("progress.py", (ROOT / "progress.py").read_text(encoding="utf-8")),
         cell("markdown", "## Preprocess"),
         write_file_cell("preprocess.py", (folder / "preprocess.py").read_text(encoding="utf-8")),
         cell("markdown", "## Evaluate"),

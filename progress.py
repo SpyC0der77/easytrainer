@@ -1,5 +1,8 @@
 """Keep tqdm/transformers logs readable when the output pane is narrow or resized.
 
+Shared by every task. Import this before `datasets` or `transformers` so
+progress bars are configured first.
+
 Kaggle's log viewer (and most notebook captures) do not treat ``\\r`` as
 "overwrite this line", and they do not expose the pane width as ``COLUMNS``.
 A full-width tqdm bar then wraps mid-update and stacks into a staircase.

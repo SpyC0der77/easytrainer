@@ -8,8 +8,10 @@ token-classification dataset.
 """
 
 import json
+import sys
 from pathlib import Path
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 import progress  # noqa: F401  # configure tqdm before datasets starts bars
 from datasets import load_dataset
 
