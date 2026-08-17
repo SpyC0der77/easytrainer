@@ -45,10 +45,16 @@ def build(folder, packages):
     cells = []
     if readme.exists():
         cells.append(cell("markdown", readme.read_text(encoding="utf-8")))
+    others = " ".join(p for p in packages if p != "torch")
     cells += [
         cell("markdown", "## Setup"),
         cell("code", "!pip install uv"),
-        cell("code", "!uv pip install --system " + " ".join(packages)),
+        # Default torch wheels dropped Pascal. CUDA 12.6 still runs Kaggle P100 (sm_60) and T4.
+        cell(
+            "code",
+            "!uv pip install --system --reinstall torch --index-url https://download.pytorch.org/whl/cu126\n"
+            f"!uv pip install --system {others}",
+        ),
         cell(
             "code",
             "from IPython.display import HTML, display\n"
