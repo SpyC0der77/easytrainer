@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+reviews:
+  profile: chill
+  path_instructions:
+    - path: "**/*.{py,ipynb,md}"
+      instructions: |
+        This repo is a quick-start training kit, not production software.
+        Prefer short, readable scripts over defensive error handling, logging
+        filters, key-alias shims, monkey patches, or version-compat wrappers.
+        Do not flag missing try/except, weights_only, cloned tensors, parent vs
+        child logger filters, or similar hardening unless it is a real bug that
+        breaks the happy-path train/eval loop. Leave expected Hugging Face
+        warnings (new classifier head, LayerNorm name quirks, warmup_ratio
+        deprecation) alone.
+        Keep preprocess.py / train.py / evaluate.py / infer.py in their roles.
+        Generated notebooks (*.ipynb) copy those files; review the .py sources.

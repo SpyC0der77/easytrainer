@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://cubic.dev/schema/cubic-repository-config.schema.json
+
+version: 1
+
+reviews:
+  enabled: true
+  sensitivity: low
+  custom_instructions: |
+    This repo is a quick-start training kit, not production software.
+    Prefer short, readable scripts over defensive error handling, logging
+    filters, key-alias shims, monkey patches, or version-compat wrappers.
+    Do not flag missing try/except, weights_only, cloned tensors, parent vs
+    child logger filters, or similar hardening unless it is a real bug that
+    breaks the happy-path train/eval loop. Leave expected Hugging Face
+    warnings (new classifier head, LayerNorm name quirks, warmup_ratio
+    deprecation) alone.
+    Keep preprocess.py / train.py / evaluate.py / infer.py in their roles.
+    Generated notebooks (*.ipynb) copy those files; review the .py sources.
+  custom_rules:
+    - name: Quick-start, not production
+      description: >
+        Do not request extra error handling, logging suppression, checkpoint
+        key aliases, or compatibility shims. Flag only issues that break
+        training, evaluation, or inference on the default config.
+      exclude:
+        - "**/*.ipynb"
