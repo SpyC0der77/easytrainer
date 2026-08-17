@@ -22,9 +22,7 @@ The bundled example finds emotion *spans* in Reddit comments from [GoEmotions](h
 - Labels are collected from the data (`O` first, then every `B-*` / `I-*` tag that appears).
 - The split is 90/10 train/val (`test_size` and `seed` in `config.json`).
 
-Training fine-tunes `distilbert-base-uncased` as a token classifier. The base checkpoint has no token-classification head, so Hugging Face initializes `classifier.*` randomly (the MLM head weights are unused). Wordpiece tokens inherit the word's label; subword continuations and special tokens are ignored (`-100`) so they do not affect loss or metrics.
-
-Warmup is `warmup_ratio` of the Trainer's optimizer-update count, converted to `warmup_steps` after the dataloader is built (so GPU count and `gradient_accumulation_steps` are included). The first `span_f1` is reported at the end of epoch 1 (`eval_strategy` is `epoch`). Training stops early if `span_f1` does not improve for `early_stopping_patience` epochs; the best checkpoint is saved. Saved weights include both `LayerNorm.weight`/`bias` and `gamma`/`beta` names so DistilBERT reloads cleanly.
+Training fine-tunes `distilbert-base-uncased` as a token classifier. Wordpiece tokens inherit the word's label; subword continuations and special tokens are ignored (`-100`) so they do not affect loss or metrics. Eval runs each epoch; training stops if `span_f1` does not improve for `early_stopping_patience` epochs, and the best checkpoint is saved.
 
 `evaluate.py` reports:
 
