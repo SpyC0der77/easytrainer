@@ -13,7 +13,9 @@ from transformers import (
     AutoModelForTokenClassification,
     AutoTokenizer,
     DataCollatorForTokenClassification,
+    EarlyStoppingCallback,
     Trainer,
+    TrainerCallback,
     TrainingArguments,
     set_seed,
 )
@@ -30,6 +32,40 @@ set_seed(cfg["seed"])
 
 print(len(train_ds), "train,", len(eval_ds), "val,", len(labels), "labels")
 
+
+def add_layernorm_aliases(state_dict):
+    """DistilBERT checkpoints mix LayerNorm.weight/bias with gamma/beta names."""
+    extra = {}
+    for key, value in state_dict.items():
+        if key.endswith("LayerNorm.gamma"):
+            extra[f"{key[:-5]}weight"] = value
+        elif key.endswith("LayerNorm.beta"):
+            extra[f"{key[:-4]}bias"] = value
+        elif key.endswith("LayerNorm.weight"):
+            extra[f"{key[:-6]}gamma"] = value
+        elif key.endswith("LayerNorm.bias"):
+            extra[f"{key[:-4]}beta"] = value
+    state_dict.update(extra)
+    return state_dict
+
+
+def alias_saved_model(model_dir):
+    model_dir = Path(model_dir)
+    safetensors_path = model_dir / "model.safetensors"
+    bin_path = model_dir / "pytorch_model.bin"
+    if safetensors_path.exists():
+        from safetensors.torch import load_file, save_file
+
+        save_file(add_layernorm_aliases(dict(load_file(safetensors_path))), str(safetensors_path))
+    elif bin_path.exists():
+        torch.save(add_layernorm_aliases(torch.load(bin_path, map_location="cpu")), bin_path)
+
+
+class LayerNormAliasCallback(TrainerCallback):
+    def on_save(self, args, state, control, **kwargs):
+        alias_saved_model(Path(args.output_dir) / f"checkpoint-{state.global_step}")
+
+
 tokenizer = AutoTokenizer.from_pretrained(cfg["model"])
 model = AutoModelForTokenClassification.from_pretrained(
     cfg["model"],
@@ -43,6 +79,11 @@ model = AutoModelForTokenClassification.from_pretrained(
 tokenize = make_tokenize(tokenizer)
 tokenized_train = train_ds.map(tokenize, batched=True, remove_columns=train_ds.column_names)
 tokenized_eval = eval_ds.map(tokenize, batched=True, remove_columns=eval_ds.column_names)
+
+callbacks = [LayerNormAliasCallback()]
+patience = cfg.get("early_stopping_patience")
+if patience:
+    callbacks.append(EarlyStoppingCallback(early_stopping_patience=patience))
 
 trainer = Trainer(
     model=model,
@@ -71,6 +112,7 @@ trainer = Trainer(
     processing_class=tokenizer,
     data_collator=DataCollatorForTokenClassification(tokenizer),
     compute_metrics=compute_metrics,
+    callbacks=callbacks,
 )
 progress.attach_aligned_logging(trainer)
 train_loader = trainer.get_train_dataloader()
@@ -79,4 +121,6 @@ updates_per_epoch = max(1, math.ceil(len(train_loader) / grad_accum))
 total_updates = math.ceil(trainer.args.num_train_epochs * updates_per_epoch)
 trainer.args.warmup_steps = math.ceil(total_updates * cfg["warmup_ratio"])
 trainer.train()
-trainer.save_model(str(Path(output_dir) / "best_model"))
+best_dir = Path(output_dir) / "best_model"
+trainer.save_model(str(best_dir))
+alias_saved_model(best_dir)

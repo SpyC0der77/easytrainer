@@ -31,6 +31,7 @@ _EXPECTED_LOG_NEEDLES = (
 
 _GATHER_WARNING = "Was asked to gather along dimension 0"
 _log_filter: _ExpectedLogFilter | None = None
+_gather_showwarning_wrapped = False
 
 
 class _ExpectedLogFilter(logging.Filter):
@@ -59,8 +60,25 @@ def disable_tqdm() -> bool:
     return captured_display()
 
 
+def _quiet_gather_warning() -> None:
+    """Drop DataParallel's scalar-gather UserWarning even if filters are reset."""
+    global _gather_showwarning_wrapped
+    warnings.filterwarnings("ignore", message=r".*gather along dimension 0.*", category=UserWarning)
+    if _gather_showwarning_wrapped:
+        return
+    original = warnings.showwarning
+
+    def showwarning(message, category, filename, lineno, file=None, line=None):
+        if _GATHER_WARNING in str(message):
+            return
+        return original(message, category, filename, lineno, file=file, line=line)
+
+    warnings.showwarning = showwarning
+    _gather_showwarning_wrapped = True
+
+
 def configure() -> None:
-    warnings.filterwarnings("ignore", message=_GATHER_WARNING, category=UserWarning)
+    _quiet_gather_warning()
     if disable_tqdm():
         os.environ["TQDM_DISABLE"] = "1"
         os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
