@@ -36,15 +36,18 @@ print(len(train_ds), "train,", len(eval_ds), "val,", len(labels), "labels")
 def add_layernorm_aliases(state_dict):
     """DistilBERT checkpoints mix LayerNorm.weight/bias with gamma/beta names."""
     extra = {}
+    pairs = (
+        ("LayerNorm.gamma", "LayerNorm.weight"),
+        ("LayerNorm.beta", "LayerNorm.bias"),
+        ("_layer_norm.gamma", "_layer_norm.weight"),
+        ("_layer_norm.beta", "_layer_norm.bias"),
+    )
     for key, value in state_dict.items():
-        if key.endswith("LayerNorm.gamma"):
-            extra[f"{key[:-5]}weight"] = value
-        elif key.endswith("LayerNorm.beta"):
-            extra[f"{key[:-4]}bias"] = value
-        elif key.endswith("LayerNorm.weight"):
-            extra[f"{key[:-6]}gamma"] = value
-        elif key.endswith("LayerNorm.bias"):
-            extra[f"{key[:-4]}beta"] = value
+        for src, dst in pairs:
+            if key.endswith(src):
+                extra[f"{key[: -len(src)]}{dst}"] = value.detach().clone() if hasattr(value, "detach") else value
+            elif key.endswith(dst):
+                extra[f"{key[: -len(dst)]}{src}"] = value.detach().clone() if hasattr(value, "detach") else value
     state_dict.update(extra)
     return state_dict
 
@@ -58,7 +61,10 @@ def alias_saved_model(model_dir):
 
         save_file(add_layernorm_aliases(dict(load_file(safetensors_path))), str(safetensors_path))
     elif bin_path.exists():
-        torch.save(add_layernorm_aliases(torch.load(bin_path, map_location="cpu")), bin_path)
+        torch.save(
+            add_layernorm_aliases(torch.load(bin_path, map_location="cpu", weights_only=True)),
+            bin_path,
+        )
 
 
 class LayerNormAliasCallback(TrainerCallback):
@@ -119,6 +125,7 @@ train_loader = trainer.get_train_dataloader()
 grad_accum = max(trainer.args.gradient_accumulation_steps, 1)
 updates_per_epoch = max(1, math.ceil(len(train_loader) / grad_accum))
 total_updates = math.ceil(trainer.args.num_train_epochs * updates_per_epoch)
+# train() builds the scheduler from this; the dataloader above is only for step counts
 trainer.args.warmup_steps = math.ceil(total_updates * cfg["warmup_ratio"])
 trainer.train()
 best_dir = Path(output_dir) / "best_model"

@@ -69,7 +69,7 @@ def _quiet_gather_warning() -> None:
     original = warnings.showwarning
 
     def showwarning(message, category, filename, lineno, file=None, line=None):
-        if _GATHER_WARNING in str(message):
+        if _GATHER_WARNING in str(message) and issubclass(category, UserWarning):
             return
         return original(message, category, filename, lineno, file=file, line=line)
 
