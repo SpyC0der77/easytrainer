@@ -50,9 +50,12 @@ def build(folder, packages):
         cell("markdown", "## Setup"),
         cell("code", "!pip install uv"),
         # Default torch wheels dropped Pascal. CUDA 12.6 still runs Kaggle P100 (sm_60) and T4.
+        # Kaggle's leftover torchvision is built against a different torch; that mismatch
+        # makes transformers fail to import Trainer (torchvision::nms). We don't need it.
         cell(
             "code",
             "!uv pip install --system --reinstall torch --index-url https://download.pytorch.org/whl/cu126\n"
+            "!uv pip uninstall --system -y torchvision torchaudio\n"
             f"!uv pip install --system {others}",
         ),
         cell(
