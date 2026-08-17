@@ -161,8 +161,19 @@ def format_trainer_logs(logs: dict) -> dict:
     return {key: format_log_number(key, value) for key, value in logs.items() if key != "total_flos"}
 
 
+def _pop_callback(trainer, callback_cls) -> None:
+    try:
+        trainer.pop_callback(callback_cls)
+    except Exception:
+        pass
+
+
 def attach_aligned_logging(trainer) -> None:
-    """Replace Hugging Face's PrinterCallback so loss lines use zero-padded numbers."""
+    """Use zero-padded loss lines instead of PrinterCallback when tqdm is off.
+
+    On a TTY, Trainer already logs through ProgressCallback; adding another
+    printer would duplicate every ``on_log`` record.
+    """
     from transformers.trainer_callback import PrinterCallback, TrainerCallback
 
     class AlignedLogCallback(TrainerCallback):
@@ -171,11 +182,26 @@ def attach_aligned_logging(trainer) -> None:
                 return
             print(format_trainer_logs(logs), flush=True)
 
-    try:
-        trainer.pop_callback(PrinterCallback)
-    except Exception:
-        pass
-    trainer.add_callback(AlignedLogCallback())
+    _pop_callback(trainer, PrinterCallback)
+    if disable_tqdm():
+        trainer.add_callback(AlignedLogCallback())
+
+
+def print_eval_metrics(trainer) -> dict:
+    """Evaluate and print formatted metrics even if ``evaluate()`` never logs.
+
+    Standalone ``Trainer.evaluate()`` only started calling ``self.log`` in
+    transformers ~4.44. Always print the returned dict so older installs still
+    show scores, and drop default printers so newer installs do not print twice.
+    """
+    from transformers.trainer_callback import PrinterCallback, ProgressCallback
+
+    _pop_callback(trainer, PrinterCallback)
+    _pop_callback(trainer, ProgressCallback)
+    metrics = trainer.evaluate()
+    if metrics:
+        print(format_trainer_logs(metrics), flush=True)
+    return metrics
 
 
 configure()
