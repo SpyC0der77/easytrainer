@@ -24,12 +24,14 @@ The bundled example finds emotion *spans* in Reddit comments from [GoEmotions](h
 
 Training fine-tunes `distilbert-base-uncased` as a token classifier. Wordpiece tokens inherit the word's label; subword continuations and special tokens are ignored (`-100`) so they do not affect loss or metrics. Eval runs each epoch; training stops if `span_f1` does not improve for `early_stopping_patience` epochs, and the best checkpoint is saved.
 
-`evaluate.py` reports:
+`evaluate.py` prints a short plain-English report on the held-out split:
 
-- **token accuracy** — share of labeled word tokens predicted correctly
-- **span precision / recall / F1** — exact match on `(start, end, emotion)` spans, which is the metric used to pick the best checkpoint (`span_f1`)
+- how often word tags match (this is high because most words are not part of an emotion)
+- how many labeled emotion phrases the model got exactly right (same words and same emotion)
+- precision, recall, and span F1 in everyday wording
+- a few comments written as “labeled vs model,” with no token tables
 
-`infer.py` prints a few validation comments that contain at least one gold span, with gold vs predicted spans and a token-level diff (`!` on mismatches).
+`infer.py` prints the same kind of comment write-ups.
 
 ## Layout
 
@@ -38,8 +40,8 @@ Training fine-tunes `distilbert-base-uncased` as a token classifier. Wordpiece t
 ├── config.json    # model, data URL, split, and training settings
 ├── preprocess.py  # load GoEmotions spans and build BIO labels
 ├── train.py       # train and save the best checkpoint
-├── evaluate.py    # score the saved model (token accuracy, span P/R/F1)
-├── infer.py       # run the saved model on validation examples
+├── evaluate.py    # score the saved model in plain English
+├── infer.py       # run the saved model on validation comments
 ├── README.md
 ```
 
