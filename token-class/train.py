@@ -74,7 +74,7 @@ trainer = Trainer(
 )
 train_loader = trainer.get_train_dataloader()
 grad_accum = max(trainer.args.gradient_accumulation_steps, 1)
-updates_per_epoch = max(len(train_loader) // grad_accum, 1)
+updates_per_epoch = max(1, math.ceil(len(train_loader) / grad_accum))
 total_updates = math.ceil(trainer.args.num_train_epochs * updates_per_epoch)
 trainer.args.warmup_steps = math.ceil(total_updates * cfg["warmup_ratio"])
 trainer.train()

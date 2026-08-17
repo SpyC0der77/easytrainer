@@ -81,14 +81,43 @@ def configure() -> None:
     _patch_tqdm_for_resize()
 
 
+def _in_filter_namespace(name: str) -> bool:
+    return (
+        name == "transformers"
+        or name.startswith("transformers.")
+        or name == "huggingface_hub"
+        or name.startswith("huggingface_hub.")
+    )
+
+
+def _attach_expected_log_filter(logger: object) -> None:
+    if _log_filter is None or not isinstance(logger, logging.Logger):
+        return
+    if not _in_filter_namespace(logger.name):
+        return
+    if _log_filter not in logger.filters:
+        logger.addFilter(_log_filter)
+
+
 def _install_expected_log_filter() -> None:
     global _log_filter
     if _log_filter is None:
         _log_filter = _ExpectedLogFilter()
+    manager = logging.Logger.manager
+    for logger in list(manager.loggerDict.values()):
+        _attach_expected_log_filter(logger)
     for name in ("transformers", "huggingface_hub"):
-        logger = logging.getLogger(name)
-        if _log_filter not in logger.filters:
-            logger.addFilter(_log_filter)
+        _attach_expected_log_filter(logging.getLogger(name))
+    if not getattr(manager, "_easytrainer_filtered_getLogger", False):
+        original = manager.getLogger
+
+        def getLogger(name):
+            logger = original(name)
+            _attach_expected_log_filter(logger)
+            return logger
+
+        manager.getLogger = getLogger
+        manager._easytrainer_filtered_getLogger = True
 
 
 def _patch_tqdm_for_resize() -> None:
