@@ -1,4 +1,4 @@
-"""Turn each task folder into a training notebook (no infer.py)."""
+"""Turn each task folder into a training notebook."""
 
 import json
 import tomllib
@@ -70,6 +70,8 @@ def build(folder, packages):
         write_file_cell("progress.py", (ROOT / "progress.py").read_text(encoding="utf-8")),
         cell("markdown", "## Preprocess"),
         write_file_cell("preprocess.py", (folder / "preprocess.py").read_text(encoding="utf-8")),
+        cell("markdown", "## Infer"),
+        write_file_cell("infer.py", (folder / "infer.py").read_text(encoding="utf-8")),
         cell("markdown", "## Evaluate"),
         write_file_cell("evaluate.py", (folder / "evaluate.py").read_text(encoding="utf-8")),
         cell("markdown", "## Train"),

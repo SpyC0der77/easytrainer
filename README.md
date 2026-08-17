@@ -12,7 +12,7 @@ Each task is in its own folder, each following this structure:
 - `config.json`: Contains all configuration parameters for your project, such as model selection, training hyperparameters, data paths, and other customizable options.
 - `preprocess.py`: For all data preparation steps, including dataset manipulation, cleaning, feature engineering, and schema migration. Prepare your data for training in this file.
 - `train.py`: Dedicated solely to model training. It imports its input data from `preprocess.py` and should not contain any data preparation, evaluation, or inference code. Loads necessary settings from `config.json` to configure, train, and save your model.
-- `evaluate.py`: Scores a saved model on the validation split. Holds the task metrics so `train.py` can reuse them during training, and can be run on its own after training.
+- `evaluate.py`: Scores a saved model on the validation split. Holds the task metrics so `train.py` can reuse them during training. Example write-ups come from `infer.py`.
 - `infer.py`: Handles inference and prediction. Load trained models and generate predictions in this file, also taking required configurations from `config.json`.
 - `README.md`: Explains the tasks purpose, folder organization, and how to use the code.
 
