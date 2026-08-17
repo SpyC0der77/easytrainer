@@ -1,19 +1,17 @@
 """Keep tqdm/transformers logs readable when the output pane is narrow or resized.
 
-Shared by every task. Import this before `datasets` or `transformers` so
-progress bars are configured first.
+Import this before `datasets` or `transformers` so progress bars are configured first.
 
-Kaggle's log viewer (and most notebook captures) do not treat ``\\r`` as
-"overwrite this line", and they do not expose the pane width as ``COLUMNS``.
-A full-width tqdm bar then wraps mid-update and stacks into a staircase.
-This module disables those bars in captured/Kaggle output and uses a compact,
-``dynamic_ncols`` bar in a real terminal so a resize still fits.
+Kaggle's log viewer does not treat ``\\r`` as overwrite, so a full-width tqdm bar
+wraps into a staircase. This module turns those bars off in captured/Kaggle
+output and uses a compact bar in a real terminal.
 """
 
 from __future__ import annotations
 
 import os
 import sys
+import warnings
 from pathlib import Path
 
 
@@ -35,28 +33,13 @@ def disable_tqdm() -> bool:
 
 
 def configure() -> None:
+    warnings.filterwarnings("ignore", message="Was asked to gather along dimension 0", category=UserWarning)
     if disable_tqdm():
         os.environ["TQDM_DISABLE"] = "1"
         os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-        try:
-            from datasets.utils.logging import disable_progress_bar as disable_datasets_bar
-
-            disable_datasets_bar()
-        except Exception:
-            pass
-        try:
-            from transformers.utils.logging import disable_progress_bar as disable_hf_bar
-
-            disable_hf_bar()
-        except Exception:
-            pass
         return
 
     os.environ.setdefault("TQDM_DYNAMIC_NCOLS", "True")
-    _patch_tqdm_for_resize()
-
-
-def _patch_tqdm_for_resize() -> None:
     try:
         import tqdm.std as std
     except Exception:

@@ -22,7 +22,7 @@ The bundled example finds emotion *spans* in Reddit comments from [GoEmotions](h
 - Labels are collected from the data (`O` first, then every `B-*` / `I-*` tag that appears).
 - The split is 90/10 train/val (`test_size` and `seed` in `config.json`).
 
-Training fine-tunes `distilbert-base-uncased` as a token classifier. Wordpiece tokens inherit the word's label; subword continuations and special tokens are ignored (`-100`) so they do not affect loss or metrics.
+Training fine-tunes `distilbert-base-uncased` as a token classifier. Wordpiece tokens inherit the word's label; subword continuations and special tokens are ignored (`-100`) so they do not affect loss or metrics. Eval runs each epoch; training stops if `span_f1` does not improve for `early_stopping_patience` epochs, and the best checkpoint is saved.
 
 `evaluate.py` reports:
 

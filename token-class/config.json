@@ -13,6 +13,9 @@
   "warmup_ratio": 0.06,
   "eval_strategy": "epoch",
   "save_strategy": "epoch",
+  "save_total_limit": 2,
+  "logging_steps": 50,
   "metric_for_best_model": "span_f1",
+  "early_stopping_patience": 2,
   "show_examples": 6
 }
