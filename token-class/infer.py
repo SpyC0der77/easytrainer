@@ -1,5 +1,6 @@
 """Run a trained token classifier. Example: emotion-span BIO tags."""
 
+# --- imports ---
 import json
 import sys
 from pathlib import Path
@@ -12,14 +13,17 @@ from transformers import AutoModelForTokenClassification, AutoTokenizer
 from evaluate import bio_to_spans, describe_example, predict_tags
 from preprocess import eval_ds
 
+# --- config ---
 root = Path(__file__).parent
 cfg = json.loads((root / "config.json").read_text())
 model_dir = str(root / cfg["output_dir"] / "best_model")
 
+# --- model ---
 tokenizer = AutoTokenizer.from_pretrained(model_dir)
 model = AutoModelForTokenClassification.from_pretrained(model_dir)
 model.eval()
 
+# --- infer ---
 shown = 0
 for row in eval_ds:
     pred = predict_tags(model, tokenizer, row["tokens"])

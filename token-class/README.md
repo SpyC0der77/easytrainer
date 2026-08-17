@@ -21,8 +21,9 @@ The bundled example finds emotion *spans* in Reddit comments from [GoEmotions](h
 - Empty trailing tokens are stripped after BIO tags are assigned (span indices refer to the original token list); comments with no tokens are dropped.
 - Labels are collected from the data (`O` first, then every `B-*` / `I-*` tag that appears).
 - The split is 90/10 train/val (`test_size` and `seed` in `config.json`).
+- Wordpiece tokens inherit the word's label; subword continuations and special tokens are ignored (`-100`) so they do not affect loss or metrics.
 
-Training fine-tunes `distilbert-base-uncased` as a token classifier. Wordpiece tokens inherit the word's label; subword continuations and special tokens are ignored (`-100`) so they do not affect loss or metrics. Eval runs each epoch; training stops if `span_f1` does not improve for `early_stopping_patience` epochs, and the best checkpoint is saved.
+Training fine-tunes `distilbert-base-uncased` as a token classifier. Eval runs each epoch; training stops if `span_f1` does not improve for `early_stopping_patience` epochs, and the best checkpoint is saved.
 
 `evaluate.py` prints a short plain-English report on the held-out split:
 
@@ -38,7 +39,7 @@ Training fine-tunes `distilbert-base-uncased` as a token classifier. Wordpiece t
 ```
 .
 ├── config.json    # model, data URL, split, and training settings
-├── preprocess.py  # load GoEmotions spans and build BIO labels
+├── preprocess.py  # load GoEmotions spans, build BIO labels, tokenize
 ├── train.py       # train and save the best checkpoint
 ├── evaluate.py    # score the saved model in plain English
 ├── infer.py       # run the saved model on validation comments

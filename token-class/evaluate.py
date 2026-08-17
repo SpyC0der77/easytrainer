@@ -1,5 +1,6 @@
 """Score a trained token classifier. Example: emotion-span BIO tags."""
 
+# --- imports ---
 import json
 import sys
 from pathlib import Path
@@ -16,36 +17,14 @@ from transformers import (
     TrainingArguments,
 )
 
-from preprocess import eval_ds, id2label, label2id, tag_spans
+from preprocess import eval_ds, id2label, tag_spans, tokenized_eval
 
+# --- config ---
 root = Path(__file__).parent
 cfg = json.loads((root / "config.json").read_text())
 
 
-def make_tokenize(tokenizer):
-    def tokenize(batch):
-        encoded = tokenizer(
-            batch["tokens"], is_split_into_words=True, truncation=True, max_length=cfg["max_length"]
-        )
-        aligned = []
-        for i, tags in enumerate(batch["bio_tags"]):
-            word_ids = encoded.word_ids(batch_index=i)
-            ids, prev = [], None
-            for word_id in word_ids:
-                if word_id is None:
-                    ids.append(-100)
-                elif word_id != prev:
-                    ids.append(label2id[tags[word_id]])
-                else:
-                    ids.append(-100)
-                prev = word_id
-            aligned.append(ids)
-        encoded["labels"] = aligned
-        return encoded
-
-    return tokenize
-
-
+# --- metrics ---
 def compute_metrics(eval_pred):
     logits, label_ids = eval_pred
     pred_ids = np.argmax(logits, axis=-1)
@@ -79,6 +58,7 @@ def compute_metrics(eval_pred):
     }
 
 
+# --- plain-English report ---
 def pct(x):
     return f"{100 * x:.1f}%"
 
@@ -151,6 +131,7 @@ def print_examples(pred_ids, label_ids, n):
             break
 
 
+# --- predict one comment ---
 def predict_tags(model, tokenizer, tokens):
     tags = ["O"] * len(tokens)
     device = next(model.parameters()).device
@@ -181,13 +162,11 @@ def predict_tags(model, tokenizer, tokens):
     return tags
 
 
+# --- score saved model ---
 if __name__ == "__main__":
     model_dir = str(root / cfg["output_dir"] / "best_model")
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     model = AutoModelForTokenClassification.from_pretrained(model_dir)
-    tokenized_eval = eval_ds.map(
-        make_tokenize(tokenizer), batched=True, remove_columns=eval_ds.column_names
-    )
     trainer = Trainer(
         model=model,
         args=TrainingArguments(

@@ -1,5 +1,6 @@
 """Train a token classifier. Example labels: emotion-span BIO tags."""
 
+# --- imports ---
 import json
 import os
 import sys
@@ -10,7 +11,6 @@ import progress
 import torch
 from transformers import (
     AutoModelForTokenClassification,
-    AutoTokenizer,
     DataCollatorForTokenClassification,
     EarlyStoppingCallback,
     Trainer,
@@ -18,9 +18,10 @@ from transformers import (
     set_seed,
 )
 
-from evaluate import compute_metrics, make_tokenize
-from preprocess import eval_ds, id2label, label2id, labels, train_ds
+from evaluate import compute_metrics
+from preprocess import id2label, label2id, labels, tokenized_eval, tokenized_train, tokenizer
 
+# --- config ---
 root = Path(__file__).parent
 cfg = json.loads((root / "config.json").read_text())
 output_dir = str(root / cfg["output_dir"])
@@ -28,17 +29,14 @@ output_dir = str(root / cfg["output_dir"])
 os.environ["WANDB_DISABLED"] = "true"
 set_seed(cfg["seed"])
 
-print(len(train_ds), "train,", len(eval_ds), "val,", len(labels), "labels")
+print(len(tokenized_train), "train,", len(tokenized_eval), "val,", len(labels), "labels")
 
-tokenizer = AutoTokenizer.from_pretrained(cfg["model"])
+# --- model ---
 model = AutoModelForTokenClassification.from_pretrained(
     cfg["model"], num_labels=len(labels), id2label=id2label, label2id=label2id
 )
 
-tokenize = make_tokenize(tokenizer)
-tokenized_train = train_ds.map(tokenize, batched=True, remove_columns=train_ds.column_names)
-tokenized_eval = eval_ds.map(tokenize, batched=True, remove_columns=eval_ds.column_names)
-
+# --- train ---
 trainer = Trainer(
     model=model,
     args=TrainingArguments(
