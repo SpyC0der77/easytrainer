@@ -1,5 +1,6 @@
 """Score a trained token classifier. Example: emotion-span BIO tags."""
 
+# --- imports ---
 import json
 import sys
 from pathlib import Path
@@ -16,36 +17,14 @@ from transformers import (
     TrainingArguments,
 )
 
-from preprocess import eval_ds, id2label, label2id, tag_spans
+from preprocess import eval_ds, id2label, tag_spans, tokenized_eval
 
+# --- config ---
 root = Path(__file__).parent
 cfg = json.loads((root / "config.json").read_text())
 
 
-def make_tokenize(tokenizer):
-    def tokenize(batch):
-        encoded = tokenizer(
-            batch["tokens"], is_split_into_words=True, truncation=True, max_length=cfg["max_length"]
-        )
-        aligned = []
-        for i, tags in enumerate(batch["bio_tags"]):
-            word_ids = encoded.word_ids(batch_index=i)
-            ids, prev = [], None
-            for word_id in word_ids:
-                if word_id is None:
-                    ids.append(-100)
-                elif word_id != prev:
-                    ids.append(label2id[tags[word_id]])
-                else:
-                    ids.append(-100)
-                prev = word_id
-            aligned.append(ids)
-        encoded["labels"] = aligned
-        return encoded
-
-    return tokenize
-
-
+# --- metrics ---
 def compute_metrics(eval_pred):
     logits, label_ids = eval_pred
     pred_ids = np.argmax(logits, axis=-1)
@@ -73,16 +52,121 @@ def compute_metrics(eval_pred):
         "span_precision": precision,
         "span_recall": recall,
         "span_f1": f1,
+        "n_gold_spans": len(gold_spans),
+        "n_pred_spans": len(pred_spans),
+        "n_exact_span_hits": tp,
     }
 
 
+# --- plain-English report ---
+def pct(x):
+    return f"{100 * x:.1f}%"
+
+
+def bio_to_spans(tokens, tags):
+    return [(emo, " ".join(tokens[s:e])) for s, e, emo in tag_spans(tags)]
+
+
+def describe_spans(spans):
+    if not spans:
+        return "no emotion"
+    return "; ".join(f"{emo} in “{text}”" for emo, text in spans)
+
+
+def describe_example(text, gold, pred):
+    lines = [f"Comment: {text.strip()}"]
+    if gold == pred:
+        if gold:
+            lines.append(f"Match: {describe_spans(gold)}.")
+        else:
+            lines.append("Match: neither the labels nor the model marked an emotion.")
+        return "\n".join(lines)
+    lines.append(f"Labeled: {describe_spans(gold)}.")
+    lines.append(f"Model:   {describe_spans(pred)}.")
+    return "\n".join(lines)
+
+
+def print_metric_report(metrics):
+    acc = metrics["eval_token_accuracy"]
+    precision = metrics["eval_span_precision"]
+    recall = metrics["eval_span_recall"]
+    f1 = metrics["eval_span_f1"]
+    n_gold = int(metrics["eval_n_gold_spans"])
+    n_pred = int(metrics["eval_n_pred_spans"])
+    n_hit = int(metrics["eval_n_exact_span_hits"])
+    print("Held-out comments (validation split)")
+    print(
+        f"  Word tags: {pct(acc)} of words got the same BIO tag as the labels. "
+        "Most words are ordinary (O), so this number runs high even when emotion phrases are shaky."
+    )
+    print(
+        f"  Emotion phrases: the labels have {n_gold}, the model marked {n_pred}, "
+        f"and {n_hit} match exactly (same words and same emotion)."
+    )
+    print(
+        f"  When the model marks a phrase, it is exactly right {pct(precision)} of the time (precision)."
+    )
+    print(f"  It finds {pct(recall)} of the labeled phrases (recall).")
+    print(
+        f"  Combined score (span F1): {pct(f1)}. "
+        "A hit has to get both the phrase boundaries and the emotion name right."
+    )
+
+
+def print_examples(pred_ids, label_ids, n):
+    print("\nA few comments, in plain English")
+    shown = 0
+    for row, pred_row, gold_row in zip(eval_ds, pred_ids, label_ids):
+        pred = [id2label[int(p)] for p, g in zip(pred_row, gold_row) if g != -100]
+        if len(pred) != len(row["tokens"]):
+            continue
+        gold_spans = bio_to_spans(row["tokens"], row["bio_tags"])
+        pred_spans = bio_to_spans(row["tokens"], pred)
+        if not gold_spans and not pred_spans:
+            continue
+        print()
+        print(describe_example(row["text"], gold_spans, pred_spans))
+        shown += 1
+        if shown == n:
+            break
+
+
+# --- predict one comment ---
+def predict_tags(model, tokenizer, tokens):
+    tags = ["O"] * len(tokens)
+    device = next(model.parameters()).device
+    start = 0
+    while start < len(tokens):
+        encoded = tokenizer(
+            tokens[start:],
+            is_split_into_words=True,
+            truncation=True,
+            max_length=cfg["max_length"],
+            return_tensors="pt",
+        )
+        word_ids = encoded.word_ids()
+        inputs = {k: encoded[k].to(device) for k in ("input_ids", "attention_mask")}
+        with torch.no_grad():
+            pred_ids = model(**inputs).logits[0].argmax(-1).tolist()
+        seen = set()
+        last = -1
+        for word_id, pred_id in zip(word_ids, pred_ids):
+            if word_id is None or word_id in seen:
+                continue
+            tags[start + word_id] = id2label[pred_id]
+            seen.add(word_id)
+            last = word_id
+        if last < 0:
+            break
+        start += last + 1
+    return tags
+
+
+# --- score saved model ---
 if __name__ == "__main__":
     model_dir = str(root / cfg["output_dir"] / "best_model")
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     model = AutoModelForTokenClassification.from_pretrained(model_dir)
-    tokenized_eval = eval_ds.map(
-        make_tokenize(tokenizer), batched=True, remove_columns=eval_ds.column_names
-    )
     trainer = Trainer(
         model=model,
         args=TrainingArguments(
@@ -97,4 +181,6 @@ if __name__ == "__main__":
         data_collator=DataCollatorForTokenClassification(tokenizer),
         compute_metrics=compute_metrics,
     )
-    print(trainer.evaluate())
+    output = trainer.predict(tokenized_eval, metric_key_prefix="eval")
+    print_metric_report(output.metrics)
+    print_examples(np.argmax(output.predictions, axis=-1), output.label_ids, cfg["show_examples"])
