@@ -9,8 +9,8 @@ import progress  # noqa: F401
 import torch
 from transformers import AutoModelForTokenClassification, AutoTokenizer
 
-from evaluate import describe_example, predict_tags
-from preprocess import bio_to_spans, eval_ds
+from evaluate import bio_to_spans, describe_example, predict_tags
+from preprocess import eval_ds
 
 root = Path(__file__).parent
 cfg = json.loads((root / "config.json").read_text())

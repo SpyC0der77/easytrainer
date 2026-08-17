@@ -16,7 +16,7 @@ from transformers import (
     TrainingArguments,
 )
 
-from preprocess import bio_to_spans, eval_ds, id2label, label2id, tag_spans
+from preprocess import eval_ds, id2label, label2id, tag_spans
 
 root = Path(__file__).parent
 cfg = json.loads((root / "config.json").read_text())
@@ -83,6 +83,10 @@ def pct(x):
     return f"{100 * x:.1f}%"
 
 
+def bio_to_spans(tokens, tags):
+    return [(emo, " ".join(tokens[s:e])) for s, e, emo in tag_spans(tags)]
+
+
 def describe_spans(spans):
     if not spans:
         return "no emotion"
@@ -129,11 +133,13 @@ def print_metric_report(metrics):
     )
 
 
-def print_examples(predict_tags, n):
+def print_examples(pred_ids, label_ids, n):
     print("\nA few comments, in plain English")
     shown = 0
-    for row in eval_ds:
-        pred = predict_tags(row["tokens"])
+    for row, pred_row, gold_row in zip(eval_ds, pred_ids, label_ids):
+        pred = [id2label[int(p)] for p, g in zip(pred_row, gold_row) if g != -100]
+        if len(pred) != len(row["tokens"]):
+            continue
         gold_spans = bio_to_spans(row["tokens"], row["bio_tags"])
         pred_spans = bio_to_spans(row["tokens"], pred)
         if not gold_spans and not pred_spans:
@@ -146,25 +152,32 @@ def print_examples(predict_tags, n):
 
 
 def predict_tags(model, tokenizer, tokens):
-    encoded = tokenizer(
-        tokens,
-        is_split_into_words=True,
-        truncation=True,
-        max_length=cfg["max_length"],
-        return_tensors="pt",
-    )
-    word_ids = encoded.word_ids()
-    device = next(model.parameters()).device
-    inputs = {k: encoded[k].to(device) for k in ("input_ids", "attention_mask")}
-    with torch.no_grad():
-        pred_ids = model(**inputs).logits[0].argmax(-1).tolist()
     tags = ["O"] * len(tokens)
-    seen = set()
-    for word_id, pred_id in zip(word_ids, pred_ids):
-        if word_id is None or word_id in seen:
-            continue
-        tags[word_id] = id2label[pred_id]
-        seen.add(word_id)
+    device = next(model.parameters()).device
+    start = 0
+    while start < len(tokens):
+        encoded = tokenizer(
+            tokens[start:],
+            is_split_into_words=True,
+            truncation=True,
+            max_length=cfg["max_length"],
+            return_tensors="pt",
+        )
+        word_ids = encoded.word_ids()
+        inputs = {k: encoded[k].to(device) for k in ("input_ids", "attention_mask")}
+        with torch.no_grad():
+            pred_ids = model(**inputs).logits[0].argmax(-1).tolist()
+        seen = set()
+        last = -1
+        for word_id, pred_id in zip(word_ids, pred_ids):
+            if word_id is None or word_id in seen:
+                continue
+            tags[start + word_id] = id2label[pred_id]
+            seen.add(word_id)
+            last = word_id
+        if last < 0:
+            break
+        start += last + 1
     return tags
 
 
@@ -189,5 +202,6 @@ if __name__ == "__main__":
         data_collator=DataCollatorForTokenClassification(tokenizer),
         compute_metrics=compute_metrics,
     )
-    print_metric_report(trainer.evaluate())
-    print_examples(lambda tokens: predict_tags(model, tokenizer, tokens), cfg["show_examples"])
+    output = trainer.predict(tokenized_eval, metric_key_prefix="eval")
+    print_metric_report(output.metrics)
+    print_examples(np.argmax(output.predictions, axis=-1), output.label_ids, cfg["show_examples"])

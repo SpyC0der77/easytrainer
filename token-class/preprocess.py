@@ -47,10 +47,6 @@ def tag_spans(tags):
     return spans
 
 
-def bio_to_spans(tokens, tags):
-    return [(emo, " ".join(tokens[s:e])) for s, e, emo in tag_spans(tags)]
-
-
 def to_example(row):
     tokens = list(row["data"]["tokens"])
     tags = spans_to_bio(tokens, row["data"].get("spans") or [])
