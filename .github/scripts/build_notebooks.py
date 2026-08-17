@@ -54,9 +54,9 @@ def build(folder, packages):
         # makes transformers fail to import Trainer (torchvision::nms). We don't need it.
         cell(
             "code",
-            "!uv pip install --system --reinstall torch --index-url https://download.pytorch.org/whl/cu126\n"
-            "!uv pip uninstall --system -y torchvision torchaudio\n"
-            f"!uv pip install --system {others}",
+            "!uv pip install --system --quiet --reinstall torch --index-url https://download.pytorch.org/whl/cu126\n"
+            "!uv pip uninstall --system --quiet torchvision torchaudio\n"
+            f"!uv pip install --system --quiet {others}",
         ),
         cell(
             "code",
