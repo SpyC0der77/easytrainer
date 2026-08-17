@@ -32,7 +32,7 @@ Training fine-tunes `distilbert-base-uncased` as a token classifier. Eval runs e
 - precision, recall, and span F1 in everyday wording
 - a few comments written as “labeled vs model,” with no token tables
 
-`infer.py` prints the same kind of comment write-ups.
+`infer.py` owns prediction (`predict_tags`) and the comment write-ups. `evaluate.py` scores the saved model, then reuses those inference helpers for the example comments.
 
 ## Layout
 
