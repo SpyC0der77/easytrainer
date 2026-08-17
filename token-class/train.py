@@ -72,6 +72,7 @@ trainer = Trainer(
     data_collator=DataCollatorForTokenClassification(tokenizer),
     compute_metrics=compute_metrics,
 )
+progress.attach_aligned_logging(trainer)
 train_loader = trainer.get_train_dataloader()
 grad_accum = max(trainer.args.gradient_accumulation_steps, 1)
 updates_per_epoch = max(1, math.ceil(len(train_loader) / grad_accum))

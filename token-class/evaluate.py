@@ -97,4 +97,5 @@ if __name__ == "__main__":
         data_collator=DataCollatorForTokenClassification(tokenizer),
         compute_metrics=compute_metrics,
     )
-    print(trainer.evaluate())
+    progress.attach_aligned_logging(trainer)
+    trainer.evaluate()

@@ -10,12 +10,15 @@ This module disables those bars in captured/Kaggle output and uses a compact,
 ``dynamic_ncols`` bar in a real terminal so a resize still fits. It also drops
 a few known-harmless messages (DataParallel scalar-gather, and in captured
 environments the DistilBERT load-mismatch table and unauthenticated Hub
-notice) without changing framework log levels.
+notice) without changing framework log levels. Trainer log lines pad numeric
+fields with zeros so loss, grad norm, learning rate, and epoch share a stable
+width.
 """
 
 from __future__ import annotations
 
 import logging
+import numbers
 import os
 import sys
 import warnings
@@ -138,6 +141,41 @@ def _patch_tqdm_for_resize() -> None:
         original_init(self, *args, **kwargs)
 
     std.tqdm.__init__ = __init__
+
+
+def format_log_number(key: str, value: object) -> object:
+    """Pad numeric Trainer fields with leading/trailing zeros so columns line up."""
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        return value
+    name = str(key).lower()
+    if name == "epoch" or name.endswith("_epoch"):
+        return f"{float(value):010.7f}"
+    if "learning_rate" in name or name == "lr":
+        return f"{float(value):0.4e}"
+    if name in {"step", "global_step"} or name.endswith("_step") or name.endswith("_steps"):
+        return f"{int(value):06d}"
+    return f"{float(value):07.4f}"
+
+
+def format_trainer_logs(logs: dict) -> dict:
+    return {key: format_log_number(key, value) for key, value in logs.items() if key != "total_flos"}
+
+
+def attach_aligned_logging(trainer) -> None:
+    """Replace Hugging Face's PrinterCallback so loss lines use zero-padded numbers."""
+    from transformers.trainer_callback import PrinterCallback, TrainerCallback
+
+    class AlignedLogCallback(TrainerCallback):
+        def on_log(self, args, state, control, logs=None, **kwargs):
+            if not logs or not getattr(state, "is_local_process_zero", True):
+                return
+            print(format_trainer_logs(logs), flush=True)
+
+    try:
+        trainer.pop_callback(PrinterCallback)
+    except Exception:
+        pass
+    trainer.add_callback(AlignedLogCallback())
 
 
 configure()
